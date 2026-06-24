@@ -16,6 +16,10 @@ import '../features/processing/screens/processing_hub_screen.dart';
 import '../features/processing/screens/create_lot_page.dart';
 import '../features/processing/screens/lot_detail_page.dart';
 import '../features/processing/screens/daily_summary_page.dart';
+import '../features/quality/screens/quality_hub_screen.dart';
+import '../features/quality/screens/grading_entry_page.dart';
+import '../features/quality/screens/qc_entry_page.dart';
+import '../features/quality/screens/quality_certificate_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -124,7 +128,24 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/grading',
           name: 'grading',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Grading & QC'),
+          builder: (context, state) => const QualityHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'grading_entry',
+              name: 'grading_entry',
+              builder: (context, state) => const GradingEntryPage(),
+            ),
+            GoRoute(
+              path: 'qc_entry',
+              name: 'qc_entry',
+              builder: (context, state) => const QCEntryPage(),
+            ),
+            GoRoute(
+              path: 'certificate_pdf',
+              name: 'certificate_pdf',
+              builder: (context, state) => const QualityCertificatePage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/employees',

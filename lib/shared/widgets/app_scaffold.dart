@@ -244,6 +244,8 @@ class _AppScaffoldState extends State<AppScaffold> {
     );
   }
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   // ═══════════════════════════════════════════
   // MOBILE LAYOUT — Bottom nav + Drawer
   // ═══════════════════════════════════════════
@@ -268,6 +270,7 @@ class _AppScaffoldState extends State<AppScaffold> {
     }
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text(_visibleNavItems[_selectedIndex].label),
         actions: [
@@ -302,7 +305,7 @@ class _AppScaffoldState extends State<AppScaffold> {
           currentIndex: bottomIndex.clamp(0, bottomItems.length - 1),
           onTap: (i) {
             if (bottomItems[i].route == '__more__') {
-              Scaffold.of(context).openDrawer();
+              _scaffoldKey.currentState?.openDrawer();
             } else {
               context.go(bottomItems[i].route);
             }
