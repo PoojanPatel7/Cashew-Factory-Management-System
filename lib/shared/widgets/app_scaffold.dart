@@ -167,22 +167,24 @@ class _AppScaffoldState extends State<AppScaffold> {
 
   Widget _buildSidebarTile(ThemeData theme, _NavItem item, int index) {
     final isSelected = _selectedIndex == index;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Material(
         color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: isSelected ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3), width: 0.5) : null,
-      ),
-      child: ListTile(
-        dense: true,
-        leading: Icon(item.icon, color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodySmall?.color, size: 22),
-        title: Text(item.label,
-          style: TextStyle(
-            color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodyMedium?.color,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, fontSize: 14)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        onTap: () => _onDestinationSelected(index),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isSelected ? BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.3), width: 0.5) : BorderSide.none,
+        ),
+        child: ListTile(
+          dense: true,
+          leading: Icon(item.icon, color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodySmall?.color, size: 22),
+          title: Text(item.label,
+            style: TextStyle(
+              color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodyMedium?.color,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, fontSize: 14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          onTap: () => _onDestinationSelected(index),
+        ),
       ),
     );
   }

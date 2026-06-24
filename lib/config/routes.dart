@@ -4,6 +4,14 @@ import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/setup_wizard_screen.dart';
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/settings/screens/settings_screen.dart';
+import '../features/procurement/screens/procurement_hub_screen.dart';
+import '../features/procurement/screens/supplier_detail_page.dart';
+import '../features/procurement/screens/add_supplier_page.dart';
+import '../features/procurement/screens/create_po_page.dart';
+import '../features/procurement/screens/po_detail_page.dart';
+import '../features/procurement/screens/goods_receipt_page.dart';
+import '../features/inventory/screens/inventory_hub_screen.dart';
+import '../features/inventory/screens/stock_adjustment_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -34,12 +42,55 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/procurement',
           name: 'procurement',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Procurement'),
+          builder: (context, state) => const ProcurementHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'supplier_detail',
+              name: 'supplier_detail',
+              builder: (context, state) {
+                final supplier = state.extra as Map<String, dynamic>?;
+                return SupplierDetailPage(supplier: supplier);
+              },
+            ),
+            GoRoute(
+              path: 'add_supplier',
+              name: 'add_supplier',
+              builder: (context, state) => const AddSupplierPage(),
+            ),
+            GoRoute(
+              path: 'create_po',
+              name: 'create_po',
+              builder: (context, state) => const CreatePoPage(),
+            ),
+            GoRoute(
+              path: 'po_detail',
+              name: 'po_detail',
+              builder: (context, state) {
+                final poData = state.extra as Map<String, dynamic>?;
+                return PoDetailPage(poData: poData);
+              },
+            ),
+            GoRoute(
+              path: 'goods_receipt',
+              name: 'goods_receipt',
+              builder: (context, state) {
+                final poData = state.extra as Map<String, dynamic>?;
+                return GoodsReceiptPage(poData: poData);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: '/inventory',
           name: 'inventory',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Inventory'),
+          builder: (context, state) => const InventoryHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'adjust',
+              name: 'stock_adjust',
+              builder: (context, state) => const StockAdjustmentPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/processing',
