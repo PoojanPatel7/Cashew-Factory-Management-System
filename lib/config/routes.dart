@@ -12,6 +12,10 @@ import '../features/procurement/screens/po_detail_page.dart';
 import '../features/procurement/screens/goods_receipt_page.dart';
 import '../features/inventory/screens/inventory_hub_screen.dart';
 import '../features/inventory/screens/stock_adjustment_page.dart';
+import '../features/processing/screens/processing_hub_screen.dart';
+import '../features/processing/screens/create_lot_page.dart';
+import '../features/processing/screens/lot_detail_page.dart';
+import '../features/processing/screens/daily_summary_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -95,7 +99,27 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/processing',
           name: 'processing',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Live Processing'),
+          builder: (context, state) => const ProcessingHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'create_lot',
+              name: 'create_lot',
+              builder: (context, state) => const CreateLotPage(),
+            ),
+            GoRoute(
+              path: 'lot_detail',
+              name: 'lot_detail',
+              builder: (context, state) {
+                final lotData = state.extra as Map<String, dynamic>?;
+                return LotDetailPage(lotData: lotData);
+              },
+            ),
+            GoRoute(
+              path: 'daily_summary',
+              name: 'daily_summary',
+              builder: (context, state) => const DailySummaryPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/grading',
