@@ -74,6 +74,9 @@ import '../features/machinery/screens/maintenance_log_entry_page.dart';
 import '../features/machinery/screens/spare_parts_list_page.dart';
 import '../features/machinery/screens/add_spare_part_page.dart';
 import '../features/machinery/screens/machine_analytics_page.dart';
+import '../features/dashboard/screens/role_dashboards.dart';
+import '../features/reports/screens/reports_hub_page.dart';
+import '../features/reports/screens/report_viewer_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -100,6 +103,31 @@ final appRouter = GoRouter(
           path: '/',
           name: 'dashboard',
           builder: (context, state) => const DashboardScreen(),
+        ),
+        GoRoute(
+          path: '/manager_dashboard',
+          name: 'manager_dashboard',
+          builder: (context, state) => const ManagerDashboardPage(),
+        ),
+        GoRoute(
+          path: '/supervisor_dashboard',
+          name: 'supervisor_dashboard',
+          builder: (context, state) => const SupervisorDashboardPage(),
+        ),
+        GoRoute(
+          path: '/accountant_dashboard',
+          name: 'accountant_dashboard',
+          builder: (context, state) => const AccountantDashboardPage(),
+        ),
+        GoRoute(
+          path: '/operator_dashboard',
+          name: 'operator_dashboard',
+          builder: (context, state) => const OperatorDashboardPage(),
+        ),
+        GoRoute(
+          path: '/worker_dashboard',
+          name: 'worker_dashboard',
+          builder: (context, state) => const WorkerDashboardPage(),
         ),
         GoRoute(
           path: '/procurement',
@@ -489,7 +517,17 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/reports',
           name: 'reports',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Reports'),
+          builder: (context, state) => const ReportsHubPage(),
+          routes: [
+            GoRoute(
+              path: 'report_viewer',
+              name: 'report_viewer',
+              builder: (context, state) {
+                final reportName = state.uri.queryParameters['reportName'] ?? 'Report';
+                return ReportViewerPage(reportName: reportName);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: '/settings',
