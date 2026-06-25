@@ -44,7 +44,17 @@ import '../features/accounting/screens/gst_invoice_page.dart';
 import '../features/accounting/screens/pnl_report_page.dart';
 import '../features/accounting/screens/lot_profitability_page.dart';
 import '../features/accounting/screens/grade_profitability_page.dart';
-import '../features/accounting/screens/outstanding_page.dart';
+import '../features/sales/screens/sales_hub_screen.dart';
+import '../features/sales/screens/customer_list_page.dart';
+import '../features/sales/screens/customer_detail_page.dart';
+import '../features/sales/screens/create_sales_order_page.dart';
+import '../features/sales/screens/sales_order_detail_page.dart';
+import '../features/sales/screens/invoice_list_page.dart';
+import '../features/sales/screens/price_list_page.dart';
+import '../features/sales/screens/dispatch_dashboard_page.dart';
+import '../features/sales/screens/create_dispatch_page.dart';
+import '../features/sales/screens/dispatch_tracking_page.dart';
+import '../features/sales/screens/export_docs_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -307,7 +317,59 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/sales',
           name: 'sales',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Sales & Dispatch'),
+          builder: (context, state) => const SalesHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'customer_list',
+              name: 'customer_list',
+              builder: (context, state) => const CustomerListPage(),
+            ),
+            GoRoute(
+              path: 'customer_detail',
+              name: 'customer_detail',
+              builder: (context, state) => const CustomerDetailPage(),
+            ),
+            GoRoute(
+              path: 'create_sales_order',
+              name: 'create_sales_order',
+              builder: (context, state) => const CreateSalesOrderPage(),
+            ),
+            GoRoute(
+              path: 'sales_order_detail',
+              name: 'sales_order_detail',
+              builder: (context, state) => const SalesOrderDetailPage(),
+            ),
+            GoRoute(
+              path: 'invoice_list',
+              name: 'invoice_list',
+              builder: (context, state) => const InvoiceListPage(),
+            ),
+            GoRoute(
+              path: 'price_list',
+              name: 'price_list',
+              builder: (context, state) => const PriceListPage(),
+            ),
+            GoRoute(
+              path: 'dispatch_dashboard',
+              name: 'dispatch_dashboard',
+              builder: (context, state) => const DispatchDashboardPage(),
+            ),
+            GoRoute(
+              path: 'create_dispatch',
+              name: 'create_dispatch',
+              builder: (context, state) => const CreateDispatchPage(),
+            ),
+            GoRoute(
+              path: 'dispatch_tracking',
+              name: 'dispatch_tracking',
+              builder: (context, state) => const DispatchTrackingPage(),
+            ),
+            GoRoute(
+              path: 'export_docs',
+              name: 'export_docs',
+              builder: (context, state) => const ExportDocsPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/byproducts',
