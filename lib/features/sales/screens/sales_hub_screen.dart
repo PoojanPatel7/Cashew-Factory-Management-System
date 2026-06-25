@@ -82,7 +82,7 @@ class SalesHubScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7))),
+                Expanded(child: Text(title, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)))),
                 Icon(icon, color: color, size: 20),
               ],
             ),

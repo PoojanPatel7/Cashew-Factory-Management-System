@@ -64,6 +64,16 @@ import '../features/compliance/screens/compliance_dashboard_page.dart';
 import '../features/compliance/screens/document_list_page.dart';
 import '../features/compliance/screens/add_document_page.dart';
 import '../features/compliance/screens/document_detail_page.dart';
+import '../features/machinery/screens/machinery_dashboard_page.dart';
+import '../features/machinery/screens/machine_list_page.dart';
+import '../features/machinery/screens/add_machine_page.dart';
+import '../features/machinery/screens/machine_detail_page.dart';
+import '../features/machinery/screens/maintenance_calendar_page.dart';
+import '../features/machinery/screens/schedule_maintenance_page.dart';
+import '../features/machinery/screens/maintenance_log_entry_page.dart';
+import '../features/machinery/screens/spare_parts_list_page.dart';
+import '../features/machinery/screens/add_spare_part_page.dart';
+import '../features/machinery/screens/machine_analytics_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -427,7 +437,54 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/machinery',
           name: 'machinery',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Machinery Portal'),
+          builder: (context, state) => const MachineryDashboardPage(),
+          routes: [
+            GoRoute(
+              path: 'machine_list',
+              name: 'machine_list',
+              builder: (context, state) => const MachineListPage(),
+            ),
+            GoRoute(
+              path: 'add_machine',
+              name: 'add_machine',
+              builder: (context, state) => const AddMachinePage(),
+            ),
+            GoRoute(
+              path: 'machine_detail',
+              name: 'machine_detail',
+              builder: (context, state) => const MachineDetailPage(),
+            ),
+            GoRoute(
+              path: 'maintenance_calendar',
+              name: 'maintenance_calendar',
+              builder: (context, state) => const MaintenanceCalendarPage(),
+            ),
+            GoRoute(
+              path: 'schedule_maintenance',
+              name: 'schedule_maintenance',
+              builder: (context, state) => const ScheduleMaintenancePage(),
+            ),
+            GoRoute(
+              path: 'maintenance_log',
+              name: 'maintenance_log',
+              builder: (context, state) => const MaintenanceLogEntryPage(),
+            ),
+            GoRoute(
+              path: 'spare_parts',
+              name: 'spare_parts',
+              builder: (context, state) => const SparePartsListPage(),
+            ),
+            GoRoute(
+              path: 'add_spare_part',
+              name: 'add_spare_part',
+              builder: (context, state) => const AddSparePartPage(),
+            ),
+            GoRoute(
+              path: 'machine_analytics',
+              name: 'machine_analytics',
+              builder: (context, state) => const MachineAnalyticsPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/reports',
