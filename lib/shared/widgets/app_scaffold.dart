@@ -352,6 +352,12 @@ class _AppScaffoldState extends State<AppScaffold> {
             ),
           ),
           const SizedBox(width: 16),
+          IconButton(
+            icon: Icon(Icons.help_outline, color: theme.textTheme.bodySmall?.color),
+            onPressed: () => context.goNamed('help'),
+            tooltip: 'Help & FAQ',
+          ),
+          const SizedBox(width: 8),
           _buildNotificationBell(theme),
           const SizedBox(width: 8),
           // User avatar
@@ -376,7 +382,7 @@ class _AppScaffoldState extends State<AppScaffold> {
         child: Icon(Icons.notifications_outlined, color: theme.textTheme.bodySmall?.color),
       ),
       onPressed: () {
-        // TODO: Open notification center
+        context.goNamed('notifications');
       },
       tooltip: 'Notifications',
     );

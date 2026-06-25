@@ -77,6 +77,8 @@ import '../features/machinery/screens/machine_analytics_page.dart';
 import '../features/dashboard/screens/role_dashboards.dart';
 import '../features/reports/screens/reports_hub_page.dart';
 import '../features/reports/screens/report_viewer_page.dart';
+import '../features/notifications/screens/notification_center_page.dart';
+import '../features/help/screens/help_faq_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -528,6 +530,16 @@ final appRouter = GoRouter(
               },
             ),
           ],
+        ),
+        GoRoute(
+          path: '/notifications',
+          name: 'notifications',
+          builder: (context, state) => const NotificationCenterPage(),
+        ),
+        GoRoute(
+          path: '/help',
+          name: 'help',
+          builder: (context, state) => const HelpFaqPage(),
         ),
         GoRoute(
           path: '/settings',
