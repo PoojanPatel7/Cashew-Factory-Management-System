@@ -20,6 +20,18 @@ import '../features/quality/screens/quality_hub_screen.dart';
 import '../features/quality/screens/grading_entry_page.dart';
 import '../features/quality/screens/qc_entry_page.dart';
 import '../features/quality/screens/quality_certificate_page.dart';
+import '../features/hr/screens/employee_hub_screen.dart';
+import '../features/hr/screens/employee_detail_page.dart';
+import '../features/hr/screens/add_employee_page.dart';
+import '../features/hr/screens/attendance_dashboard_page.dart';
+import '../features/hr/screens/self_checkin_page.dart';
+import '../features/hr/screens/attendance_calendar_page.dart';
+import '../features/hr/screens/leave_application_page.dart';
+import '../features/hr/screens/advance_management_page.dart';
+import '../features/hr/screens/piece_work_entry_page.dart';
+import '../features/hr/screens/piece_work_daily_log_page.dart';
+import '../features/hr/screens/payroll_generation_page.dart';
+import '../features/hr/screens/payslip_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -150,7 +162,67 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/employees',
           name: 'employees',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Employees'),
+          builder: (context, state) => const EmployeeHubScreen(),
+          routes: [
+            GoRoute(
+              path: 'add_employee',
+              name: 'add_employee',
+              builder: (context, state) => const AddEmployeePage(),
+            ),
+            GoRoute(
+              path: 'employee_detail',
+              name: 'employee_detail',
+              builder: (context, state) {
+                final emp = state.extra as Map<String, dynamic>?;
+                return EmployeeDetailPage(employee: emp);
+              },
+            ),
+            GoRoute(
+              path: 'attendance',
+              name: 'attendance_dashboard',
+              builder: (context, state) => const AttendanceDashboardPage(),
+            ),
+            GoRoute(
+              path: 'self_checkin',
+              name: 'self_checkin',
+              builder: (context, state) => const SelfCheckinPage(),
+            ),
+            GoRoute(
+              path: 'attendance_calendar',
+              name: 'attendance_calendar',
+              builder: (context, state) => const AttendanceCalendarPage(),
+            ),
+            GoRoute(
+              path: 'leave_application',
+              name: 'leave_application',
+              builder: (context, state) => const LeaveApplicationPage(),
+            ),
+            GoRoute(
+              path: 'advance_management',
+              name: 'advance_management',
+              builder: (context, state) => const AdvanceManagementPage(),
+            ),
+            GoRoute(
+              path: 'piece_work_entry',
+              name: 'piece_work_entry',
+              builder: (context, state) => const PieceWorkEntryPage(),
+            ),
+            GoRoute(
+              path: 'piece_work_log',
+              name: 'piece_work_log',
+              builder: (context, state) => const PieceWorkDailyLogPage(),
+            ),
+            GoRoute(
+              path: 'payroll_generation',
+              name: 'payroll_generation',
+              builder: (context, state) => const PayrollGenerationPage(),
+            ),
+            GoRoute(
+              path: 'payslip',
+              name: 'payslip',
+              builder: (context, state) => const PayslipPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/accounting',
