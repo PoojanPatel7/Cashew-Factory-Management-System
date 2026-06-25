@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:google_fonts/google_fonts.dart'; // Keep for now but don't use it to avoid crashes
 
 /// 5 Built-in Themes + Custom
 enum AppThemeMode {
@@ -165,9 +165,7 @@ ThemeData _buildTheme({
 }) {
   final isLight = brightness == Brightness.light;
   final onPrimary = isLight ? Colors.white : const Color(0xFF1A1A2E);
-  final baseTextTheme = GoogleFonts.interTextTheme(
-    isLight ? ThemeData.light().textTheme : ThemeData.dark().textTheme,
-  );
+  final baseTextTheme = isLight ? ThemeData.light().textTheme.apply(fontFamily: 'Inter') : ThemeData.dark().textTheme.apply(fontFamily: 'Inter');
 
   return ThemeData(
     useMaterial3: true,
@@ -206,7 +204,7 @@ ThemeData _buildTheme({
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
+      titleTextStyle: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
       iconTheme: IconThemeData(color: primary),
     ),
 
@@ -226,7 +224,7 @@ ThemeData _buildTheme({
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600),
       ),
     ),
 
@@ -242,7 +240,7 @@ ThemeData _buildTheme({
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: primary,
-        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600),
       ),
     ),
 
@@ -295,7 +293,7 @@ ThemeData _buildTheme({
     dialogTheme: DialogThemeData(
       backgroundColor: bgCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
+      titleTextStyle: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
     ),
 
     chipTheme: ChipThemeData(

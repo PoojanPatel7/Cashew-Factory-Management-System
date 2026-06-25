@@ -32,6 +32,19 @@ import '../features/hr/screens/piece_work_entry_page.dart';
 import '../features/hr/screens/piece_work_daily_log_page.dart';
 import '../features/hr/screens/payroll_generation_page.dart';
 import '../features/hr/screens/payslip_page.dart';
+import '../features/accounting/screens/accounting_dashboard_page.dart';
+import '../features/accounting/screens/ledger_page.dart';
+import '../features/accounting/screens/expense_list_page.dart';
+import '../features/accounting/screens/add_expense_page.dart';
+import '../features/accounting/screens/cash_book_page.dart';
+import '../features/accounting/screens/bank_account_page.dart';
+import '../features/accounting/screens/trial_balance_page.dart';
+import '../features/accounting/screens/gst_dashboard_page.dart';
+import '../features/accounting/screens/gst_invoice_page.dart';
+import '../features/accounting/screens/pnl_report_page.dart';
+import '../features/accounting/screens/lot_profitability_page.dart';
+import '../features/accounting/screens/grade_profitability_page.dart';
+import '../features/accounting/screens/outstanding_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -227,7 +240,69 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/accounting',
           name: 'accounting',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Accounting'),
+          builder: (context, state) => const AccountingDashboardPage(),
+          routes: [
+            GoRoute(
+              path: 'ledger',
+              name: 'ledger',
+              builder: (context, state) => const LedgerPage(),
+            ),
+            GoRoute(
+              path: 'expense_list',
+              name: 'expense_list',
+              builder: (context, state) => const ExpenseListPage(),
+            ),
+            GoRoute(
+              path: 'add_expense',
+              name: 'add_expense',
+              builder: (context, state) => const AddExpensePage(),
+            ),
+            GoRoute(
+              path: 'cash_book',
+              name: 'cash_book',
+              builder: (context, state) => const CashBookPage(),
+            ),
+            GoRoute(
+              path: 'bank_account',
+              name: 'bank_account',
+              builder: (context, state) => const BankAccountPage(),
+            ),
+            GoRoute(
+              path: 'trial_balance',
+              name: 'trial_balance',
+              builder: (context, state) => const TrialBalancePage(),
+            ),
+            GoRoute(
+              path: 'gst_dashboard',
+              name: 'gst_dashboard',
+              builder: (context, state) => const GstDashboardPage(),
+            ),
+            GoRoute(
+              path: 'gst_invoice',
+              name: 'gst_invoice',
+              builder: (context, state) => const GstInvoicePage(),
+            ),
+            GoRoute(
+              path: 'pnl_report',
+              name: 'pnl_report',
+              builder: (context, state) => const PnlReportPage(),
+            ),
+            GoRoute(
+              path: 'lot_profitability',
+              name: 'lot_profitability',
+              builder: (context, state) => const LotProfitabilityPage(),
+            ),
+            GoRoute(
+              path: 'grade_profitability',
+              name: 'grade_profitability',
+              builder: (context, state) => const GradeProfitabilityPage(),
+            ),
+            GoRoute(
+              path: 'outstanding',
+              name: 'outstanding',
+              builder: (context, state) => const OutstandingPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/sales',
