@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'theme_settings_page.dart';
 import 'user_management_page.dart';
 import 'grade_master_page.dart';
+import 'language_settings_page.dart';
+import 'data_export_page.dart';
+import 'database_backup_page.dart';
 
 /// Settings screen — each section navigates to its own dedicated page
 class SettingsScreen extends StatelessWidget {
@@ -56,7 +59,9 @@ class SettingsScreen extends StatelessWidget {
             child: Text('5 themes', style: TextStyle(fontSize: 11, color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
           )),
           _tile(context, theme, Icons.language_rounded, 'Language',
-              'English, हिंदी, ગુજરાતી', () {}),
+              'English, हिंदी, ગુજરાતી', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const LanguageSettingsPage()));
+          }),
 
           const SizedBox(height: 20),
           _sectionLabel(theme, 'Notifications'),
@@ -68,8 +73,14 @@ class SettingsScreen extends StatelessWidget {
           _tile(context, theme, Icons.security_rounded, 'Security',
               'Encrypt Engine status, audit logs, sessions',
               () {}, iconColor: const Color(0xFF00E676)),
-          _tile(context, theme, Icons.backup_rounded, 'Backup & Export',
-              'Database backup, data export (Excel/PDF)', () {}),
+          _tile(context, theme, Icons.backup_rounded, 'Database Backup',
+              'Secure offline backup snapshot', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const DatabaseBackupPage()));
+          }),
+          _tile(context, theme, Icons.import_export, 'Data Export',
+              'Export tables to Excel (.xlsx)', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const DataExportPage()));
+          }),
           _tile(context, theme, Icons.dns_rounded, 'Server Connection',
               'API server URL & connection status', () {}),
 

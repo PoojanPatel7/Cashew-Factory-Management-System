@@ -352,6 +352,8 @@ class _AppScaffoldState extends State<AppScaffold> {
             ),
           ),
           const SizedBox(width: 16),
+          _buildSyncIndicator(context),
+          const SizedBox(width: 16),
           IconButton(
             icon: Icon(Icons.help_outline, color: theme.textTheme.bodySmall?.color),
             onPressed: () => context.goNamed('help'),
@@ -371,6 +373,37 @@ class _AppScaffoldState extends State<AppScaffold> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSyncIndicator(BuildContext context) {
+    return PopupMenuButton(
+      tooltip: 'Sync Status',
+      icon: const Badge(
+        smallSize: 8,
+        backgroundColor: Colors.orange,
+        child: Icon(Icons.cloud_sync, color: Colors.grey),
+      ),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          enabled: false,
+          child: Text('Offline Sync Engine', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        ),
+        const PopupMenuItem(
+          enabled: false,
+          child: Text('Pending Items: 3', style: TextStyle(color: Colors.orange)),
+        ),
+        const PopupMenuItem(
+          enabled: false,
+          child: Text('Last Sync: 10 mins ago', style: TextStyle(fontSize: 12)),
+        ),
+        PopupMenuItem(
+          child: const Text('Force Sync Now'),
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Syncing data with server...')));
+          },
+        ),
+      ],
     );
   }
 
