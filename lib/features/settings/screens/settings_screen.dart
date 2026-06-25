@@ -5,6 +5,7 @@ import 'grade_master_page.dart';
 import 'language_settings_page.dart';
 import 'data_export_page.dart';
 import 'database_backup_page.dart';
+import 'security_dashboard_page.dart';
 
 /// Settings screen — each section navigates to its own dedicated page
 class SettingsScreen extends StatelessWidget {
@@ -71,8 +72,9 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
           _sectionLabel(theme, 'Security & Data'),
           _tile(context, theme, Icons.security_rounded, 'Security',
-              'Encrypt Engine status, audit logs, sessions',
-              () {}, iconColor: const Color(0xFF00E676)),
+              'Encrypt Engine status, audit logs, sessions', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityDashboardPage()));
+          }, iconColor: const Color(0xFF00E676)),
           _tile(context, theme, Icons.backup_rounded, 'Database Backup',
               'Secure offline backup snapshot', () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const DatabaseBackupPage()));
