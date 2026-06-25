@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class AccountingDashboardPage extends StatelessWidget {
   const AccountingDashboardPage({super.key});
@@ -37,19 +38,17 @@ class AccountingDashboardPage extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Summary Cards
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(child: _buildSummaryCard(context, 'Total Revenue', '₹ 12,45,000', Icons.arrow_upward, Colors.green)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildSummaryCard(context, 'Total Expenses', '₹ 4,30,000', Icons.arrow_downward, Colors.red)),
+                _buildSummaryCard(context, 'Total Revenue', '₹ 12,45,000', Icons.arrow_upward, Colors.green),
+                _buildSummaryCard(context, 'Total Expenses', '₹ 4,30,000', Icons.arrow_downward, Colors.red),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(child: _buildSummaryCard(context, 'Cash Balance', '₹ 45,000', Icons.account_balance_wallet, cs.primary)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildSummaryCard(context, 'Bank Balance', '₹ 8,20,000', Icons.account_balance, cs.primary)),
+                _buildSummaryCard(context, 'Cash Balance', '₹ 45,000', Icons.account_balance_wallet, cs.primary),
+                _buildSummaryCard(context, 'Bank Balance', '₹ 8,20,000', Icons.account_balance, cs.primary),
               ],
             ),
             const SizedBox(height: 24),

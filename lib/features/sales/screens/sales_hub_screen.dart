@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class SalesHubScreen extends StatelessWidget {
   const SalesHubScreen({super.key});
@@ -35,19 +36,17 @@ class SalesHubScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Summary Cards
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(child: _buildSummaryCard(context, 'Active Orders', '12', Icons.shopping_bag, cs.primary)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildSummaryCard(context, 'Pending Dispatch', '4', Icons.local_shipping, Colors.orange)),
+                _buildSummaryCard(context, 'Active Orders', '12', Icons.shopping_bag, cs.primary),
+                _buildSummaryCard(context, 'Pending Dispatch', '4', Icons.local_shipping, Colors.orange),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(child: _buildSummaryCard(context, 'This Month Sales', '₹ 12.4L', Icons.trending_up, Colors.green)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildSummaryCard(context, 'Overdue Payments', '₹ 1.2L', Icons.warning_amber, Colors.red)),
+                _buildSummaryCard(context, 'This Month Sales', '₹ 12.4L', Icons.trending_up, Colors.green),
+                _buildSummaryCard(context, 'Overdue Payments', '₹ 1.2L', Icons.warning_amber, Colors.red),
               ],
             ),
             const SizedBox(height: 24),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class ExportDocsPage extends StatefulWidget {
   const ExportDocsPage({super.key});
@@ -43,23 +44,18 @@ class _ExportDocsPageState extends State<ExportDocsPage> {
           const SizedBox(height: 24),
           const Text('Currency & Exchange Rate', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          Row(
+          ResponsiveGridRow(
             children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: 'USD',
-                  decoration: const InputDecoration(labelText: 'Currency'),
-                  items: ['USD', 'EUR', 'GBP'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) {},
-                ),
+              DropdownButtonFormField<String>(
+                value: 'USD',
+                decoration: const InputDecoration(labelText: 'Currency'),
+                items: ['USD', 'EUR', 'GBP'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                onChanged: (v) {},
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  initialValue: '82.50',
-                  decoration: const InputDecoration(labelText: 'Rate (₹)'),
-                  keyboardType: TextInputType.number,
-                ),
+              TextFormField(
+                initialValue: '82.50',
+                decoration: const InputDecoration(labelText: 'Rate (₹)'),
+                keyboardType: TextInputType.number,
               ),
             ],
           ),

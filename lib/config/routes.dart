@@ -44,6 +44,7 @@ import '../features/accounting/screens/gst_invoice_page.dart';
 import '../features/accounting/screens/pnl_report_page.dart';
 import '../features/accounting/screens/lot_profitability_page.dart';
 import '../features/accounting/screens/grade_profitability_page.dart';
+import '../features/accounting/screens/outstanding_page.dart';
 import '../features/sales/screens/sales_hub_screen.dart';
 import '../features/sales/screens/customer_list_page.dart';
 import '../features/sales/screens/customer_detail_page.dart';
@@ -55,6 +56,14 @@ import '../features/sales/screens/dispatch_dashboard_page.dart';
 import '../features/sales/screens/create_dispatch_page.dart';
 import '../features/sales/screens/dispatch_tracking_page.dart';
 import '../features/sales/screens/export_docs_page.dart';
+import '../features/byproducts/screens/byproduct_dashboard_page.dart';
+import '../features/byproducts/screens/byproduct_sale_page.dart';
+import '../features/byproducts/screens/cnsl_extraction_log_page.dart';
+import '../features/byproducts/screens/waste_disposal_log_page.dart';
+import '../features/compliance/screens/compliance_dashboard_page.dart';
+import '../features/compliance/screens/document_list_page.dart';
+import '../features/compliance/screens/add_document_page.dart';
+import '../features/compliance/screens/document_detail_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 /// CashewPro ERP — App Router Configuration
@@ -374,12 +383,46 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/byproducts',
           name: 'byproducts',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Byproducts'),
+          builder: (context, state) => const ByproductDashboardPage(),
+          routes: [
+            GoRoute(
+              path: 'byproduct_sale',
+              name: 'byproduct_sale',
+              builder: (context, state) => const ByproductSalePage(),
+            ),
+            GoRoute(
+              path: 'cnsl_extraction',
+              name: 'cnsl_extraction',
+              builder: (context, state) => const CnslExtractionLogPage(),
+            ),
+            GoRoute(
+              path: 'waste_log',
+              name: 'waste_log',
+              builder: (context, state) => const WasteDisposalLogPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/compliance',
           name: 'compliance',
-          builder: (context, state) => const _ComingSoonScreen(title: 'Compliance'),
+          builder: (context, state) => const ComplianceDashboardPage(),
+          routes: [
+            GoRoute(
+              path: 'document_list',
+              name: 'document_list',
+              builder: (context, state) => const DocumentListPage(),
+            ),
+            GoRoute(
+              path: 'add_document',
+              name: 'add_document',
+              builder: (context, state) => const AddDocumentPage(),
+            ),
+            GoRoute(
+              path: 'document_detail',
+              name: 'document_detail',
+              builder: (context, state) => const DocumentDetailPage(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/machinery',

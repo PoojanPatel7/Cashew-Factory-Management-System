@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class SalesOrderDetailPage extends StatelessWidget {
   const SalesOrderDetailPage({super.key});
@@ -137,22 +138,17 @@ class SalesOrderDetailPage extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    return Row(
+    return ResponsiveGridRow(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.inventory_2),
-            label: const Text('Generate Packing Slip'),
-          ),
+        OutlinedButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.inventory_2),
+          label: const Text('Generate Packing Slip'),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.local_shipping),
-            label: const Text('Create Dispatch'),
-          ),
+        FilledButton.icon(
+          onPressed: () {},
+          icon: const Icon(Icons.local_shipping),
+          label: const Text('Create Dispatch'),
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class GstDashboardPage extends StatelessWidget {
   const GstDashboardPage({super.key});
@@ -41,38 +42,33 @@ class GstDashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(
-                  child: Card(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Input Tax Credit (ITC)'),
-                          const SizedBox(height: 8),
-                          Text('₹ 18,500', style: TextStyle(color: Colors.green[400], fontSize: 24, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                Card(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Input Tax Credit (ITC)'),
+                        const SizedBox(height: 8),
+                        Text('₹ 18,500', style: TextStyle(color: Colors.green[400], fontSize: 24, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Card(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Net Tax Payable'),
-                          const SizedBox(height: 8),
-                          Text('₹ 42,500', style: TextStyle(color: Colors.orange[400], fontSize: 24, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                Card(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Net Tax Payable'),
+                        const SizedBox(height: 8),
+                        Text('₹ 42,500', style: TextStyle(color: Colors.orange[400], fontSize: 24, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                 ),

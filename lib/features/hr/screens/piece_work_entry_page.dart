@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class PieceWorkEntryPage extends StatefulWidget {
   const PieceWorkEntryPage({super.key});
@@ -95,78 +96,68 @@ class _PieceWorkEntryPageState extends State<PieceWorkEntryPage> {
               },
             ),
             const SizedBox(height: 16),
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _taskType,
-                    decoration: const InputDecoration(
-                      labelText: 'Task Type',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ['Shelling', 'Peeling', 'Grading'].map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t));
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        _taskType = val;
-                        _updateRate();
-                      }
-                    },
+                DropdownButtonFormField<String>(
+                  value: _taskType,
+                  decoration: const InputDecoration(
+                    labelText: 'Task Type',
+                    border: OutlineInputBorder(),
                   ),
+                  items: ['Shelling', 'Peeling', 'Grading'].map((t) {
+                    return DropdownMenuItem(value: t, child: Text(t));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      _taskType = val;
+                      _updateRate();
+                    }
+                  },
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _lot,
-                    decoration: const InputDecoration(
-                      labelText: 'Lot Number',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ['LOT-2026-06-01', 'LOT-2026-06-02'].map((t) {
-                      return DropdownMenuItem(value: t, child: Text(t));
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _lot = val);
-                    },
+                DropdownButtonFormField<String>(
+                  value: _lot,
+                  decoration: const InputDecoration(
+                    labelText: 'Lot Number',
+                    border: OutlineInputBorder(),
                   ),
+                  items: ['LOT-2026-06-01', 'LOT-2026-06-02'].map((t) {
+                    return DropdownMenuItem(value: t, child: Text(t));
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _lot = val);
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
+            ResponsiveGridRow(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity (kg)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (val) {
-                      if (val == null || val.isEmpty) return 'Required';
-                      if (double.tryParse(val) == null) return 'Invalid number';
-                      return null;
-                    },
-                    onSaved: (val) => _quantity = double.parse(val!),
-                    onChanged: (val) {
-                      if (double.tryParse(val) != null) {
-                        setState(() => _quantity = double.parse(val));
-                      }
-                    },
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity (kg)',
+                    border: OutlineInputBorder(),
                   ),
+                  keyboardType: TextInputType.number,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Required';
+                    if (double.tryParse(val) == null) return 'Invalid number';
+                    return null;
+                  },
+                  onSaved: (val) => _quantity = double.parse(val!),
+                  onChanged: (val) {
+                    if (double.tryParse(val) != null) {
+                      setState(() => _quantity = double.parse(val));
+                    }
+                  },
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Rate (₹)',
-                      border: OutlineInputBorder(),
-                    ),
-                    readOnly: true,
-                    initialValue: _rate.toString(),
-                    key: ValueKey(_rate),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Rate (₹)',
+                    border: OutlineInputBorder(),
                   ),
+                  readOnly: true,
+                  initialValue: _rate.toString(),
+                  key: ValueKey(_rate),
                 ),
               ],
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/responsive_grid_row.dart';
 
 class DispatchDashboardPage extends StatelessWidget {
   const DispatchDashboardPage({super.key});
@@ -13,13 +14,11 @@ class DispatchDashboardPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
+          ResponsiveGridRow(
             children: [
-              Expanded(child: _buildStatCard(context, 'Pending', '4', Colors.orange)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard(context, 'In Transit', '2', Colors.blue)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard(context, 'Delivered', '18', Colors.green)),
+              _buildStatCard(context, 'Pending', '4', Colors.orange),
+              _buildStatCard(context, 'In Transit', '2', Colors.blue),
+              _buildStatCard(context, 'Delivered', '18', Colors.green),
             ],
           ),
           const SizedBox(height: 24),
