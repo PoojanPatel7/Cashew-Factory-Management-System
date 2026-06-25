@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
-
+import '../providers/auth_provider.dart';
 /// First-time factory setup wizard (3 steps) — theme-aware
 class SetupWizardScreen extends StatefulWidget {
   const SetupWizardScreen({super.key});
@@ -69,7 +70,23 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         if (_fssaiCtrl.text.isNotEmpty) ConfirmField(label: 'FSSAI', value: _fssaiCtrl.text),
       ],
       confirmLabel: 'Start CashewPro',
-      onConfirm: () => context.go('/'),
+      onConfirm: () async {
+        final success = await ProviderScope.containerOf(context, listen: false)
+            .read(authProvider.notifier)
+            .register(
+              _nameCtrl.text,
+              _emailCtrl.text,
+              _passwordCtrl.text,
+              _factoryNameCtrl.text,
+            );
+        if (success && mounted) {
+          context.go('/');
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registration failed. Please check your network or try a different email.'), backgroundColor: Colors.red),
+          );
+        }
+      },
     );
   }
 

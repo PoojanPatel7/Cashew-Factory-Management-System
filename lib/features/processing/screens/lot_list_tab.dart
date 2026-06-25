@@ -1,37 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../providers/processing_provider.dart';
 
-class LotListTab extends StatefulWidget {
+class LotListTab extends ConsumerStatefulWidget {
   const LotListTab({super.key});
 
   @override
-  State<LotListTab> createState() => _LotListTabState();
+  ConsumerState<LotListTab> createState() => _LotListTabState();
 }
 
-class _LotListTabState extends State<LotListTab> {
+class _LotListTabState extends ConsumerState<LotListTab> {
   final _searchCtrl = TextEditingController();
   String _statusFilter = 'All';
-
-  final List<Map<String, dynamic>> _lots = [
-    {'id': 'LOT-101', 'date': '24-Jun-2026', 'rcn': 'RCN-2026-001', 'qty': '1000', 'stage': 'Boiling', 'status': 'Active'},
-    {'id': 'LOT-102', 'date': '24-Jun-2026', 'rcn': 'RCN-2026-002', 'qty': '850', 'stage': 'Cooling', 'status': 'Active'},
-    {'id': 'LOT-103', 'date': '23-Jun-2026', 'rcn': 'RCN-2026-001', 'qty': '500', 'stage': 'Shelling', 'status': 'Active'},
-    {'id': 'LOT-099', 'date': '20-Jun-2026', 'rcn': 'RCN-2026-001', 'qty': '2000', 'stage': 'Packing', 'status': 'Completed'},
-  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isWide = MediaQuery.of(context).size.width > 800;
-
-    final filtered = _lots.where((lot) {
-      if (_statusFilter != 'All' && lot['status'] != _statusFilter) return false;
-      if (_searchCtrl.text.isNotEmpty) {
-        return lot['id'].toLowerCase().contains(_searchCtrl.text.toLowerCase());
-      }
-      return true;
-    }).toList();
+    
+    final lotState = ref.watch(processingProvider);
 
     return Scaffold(
       body: Column(
@@ -64,11 +53,36 @@ class _LotListTabState extends State<LotListTab> {
                     const PopupMenuItem(value: 'Completed', child: Text('Completed')),
                   ],
                 ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => ref.read(processingProvider.notifier).fetchLots(),
+                ),
               ],
             ),
           ),
           Expanded(
-            child: isWide ? _buildDesktopTable(theme, filtered) : _buildMobileList(theme, filtered),
+            child: lotState.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err')),
+              data: (lots) {
+                final filtered = lots.where((lot) {
+                  final status = lot['status'] ?? 'Active';
+                  if (_statusFilter != 'All' && status != _statusFilter) return false;
+                  if (_searchCtrl.text.isNotEmpty) {
+                    final idStr = (lot['id'] ?? '').toString().toLowerCase();
+                    return idStr.contains(_searchCtrl.text.toLowerCase());
+                  }
+                  return true;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(child: Text('No processing lots found.'));
+                }
+
+                return isWide ? _buildDesktopTable(theme, filtered) : _buildMobileList(theme, filtered);
+              },
+            ),
           ),
         ],
       ),
@@ -89,18 +103,27 @@ class _LotListTabState extends State<LotListTab> {
           DataColumn(label: Text('Status')),
           DataColumn(label: Text('Actions')),
         ],
-        rows: data.map((lot) => DataRow(
-          onSelectChanged: (_) => context.push('/processing/lot_detail', extra: lot),
-          cells: [
-            DataCell(Text(lot['id'], style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.primary))),
-            DataCell(Text(lot['date'])),
-            DataCell(Text(lot['rcn'])),
-            DataCell(Text(lot['qty'])),
-            DataCell(Text(lot['stage'], style: const TextStyle(fontWeight: FontWeight.bold))),
-            DataCell(_statusBadge(lot['status'])),
-            DataCell(IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () {})),
-          ]
-        )).toList(),
+        rows: data.map((lot) {
+          final idStr = lot['id']?.toString() ?? 'N/A';
+          final dateStr = lot['date']?.toString() ?? lot['createdAt']?.toString() ?? 'N/A';
+          final rcn = lot['rcn']?.toString() ?? 'N/A';
+          final qty = lot['qty']?.toString() ?? '0';
+          final stage = lot['stage']?.toString() ?? 'Pending';
+          final status = lot['status']?.toString() ?? 'Active';
+
+          return DataRow(
+            onSelectChanged: (_) => context.push('/processing/lot_detail', extra: lot),
+            cells: [
+              DataCell(Text(idStr, style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.primary))),
+              DataCell(Text(dateStr)),
+              DataCell(Text(rcn)),
+              DataCell(Text(qty)),
+              DataCell(Text(stage, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataCell(_statusBadge(status)),
+              DataCell(IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () {})),
+            ]
+          );
+        }).toList(),
       ),
     );
   }
@@ -111,6 +134,12 @@ class _LotListTabState extends State<LotListTab> {
       itemCount: data.length,
       itemBuilder: (ctx, i) {
         final lot = data[i];
+        final idStr = lot['id']?.toString() ?? 'N/A';
+        final rcn = lot['rcn']?.toString() ?? 'N/A';
+        final qty = lot['qty']?.toString() ?? '0';
+        final stage = lot['stage']?.toString() ?? 'Pending';
+        final status = lot['status']?.toString() ?? 'Active';
+
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -128,19 +157,19 @@ class _LotListTabState extends State<LotListTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(lot['id'], style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: theme.colorScheme.primary)),
-                    _statusBadge(lot['status']),
+                    Text(idStr, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: theme.colorScheme.primary)),
+                    _statusBadge(status),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('Source RCN: ${lot['rcn']}', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
-                Text('Qty: ${lot['qty']} kg', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                Text('Source RCN: $rcn', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                Text('Qty: $qty kg', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     const Icon(Icons.label_important_outline, size: 16),
                     const SizedBox(width: 8),
-                    Text('Stage: ${lot['stage']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Stage: $stage', style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 )
               ],

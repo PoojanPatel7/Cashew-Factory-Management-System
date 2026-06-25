@@ -1,40 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/common_widgets.dart';
 import '../widgets/stage_completion_dialog.dart';
+import '../providers/processing_provider.dart';
 
-class KanbanBoardTab extends StatefulWidget {
+class KanbanBoardTab extends ConsumerStatefulWidget {
   const KanbanBoardTab({super.key});
 
   @override
-  State<KanbanBoardTab> createState() => _KanbanBoardTabState();
+  ConsumerState<KanbanBoardTab> createState() => _KanbanBoardTabState();
 }
 
-class _KanbanBoardTabState extends State<KanbanBoardTab> {
+class _KanbanBoardTabState extends ConsumerState<KanbanBoardTab> {
   final List<String> stages = ['Boiling', 'Cooling', 'Shelling', 'Borma', 'Peeling', 'Grading', 'Packing'];
-  
-  // Mock lot data
-  final List<Map<String, dynamic>> lots = [
-    {'id': 'LOT-101', 'stage': 'Boiling', 'qty': '1000 kg', 'time': '2h 15m', 'status': 'Running'},
-    {'id': 'LOT-102', 'stage': 'Cooling', 'qty': '850 kg', 'time': '12h 0m', 'status': 'Idle'},
-    {'id': 'LOT-103', 'stage': 'Shelling', 'qty': '500 kg', 'time': '1h 30m', 'status': 'Running'},
-    {'id': 'LOT-104', 'stage': 'Borma', 'qty': '1200 kg', 'time': '4h 45m', 'status': 'Running'},
-  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lotState = ref.watch(processingProvider);
 
     return Scaffold(
-      body: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: stages.map((stage) {
-            final stageLots = lots.where((l) => l['stage'] == stage).toList();
-            return _buildKanbanColumn(theme, stage, stageLots);
-          }).toList(),
-        ),
+      body: lotState.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (allLots) {
+          final activeLots = allLots.where((l) => l['status'] == 'Active').toList();
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: stages.map((stage) {
+                final stageLots = activeLots.where((l) => l['stage'] == stage).toList();
+                return _buildKanbanColumn(theme, stage, stageLots);
+              }).toList(),
+            ),
+          );
+        },
       ),
     );
   }
@@ -85,6 +88,10 @@ class _KanbanBoardTabState extends State<KanbanBoardTab> {
   }
 
   Widget _buildLotCard(ThemeData theme, Map<String, dynamic> lot) {
+    final lotId = lot['id']?.toString() ?? 'N/A';
+    final qty = lot['qty']?.toString() ?? '0';
+    final timeStr = '2h 15m'; // Mock time, real time needs elapsed calculation based on lot['updatedAt'] or 'createdAt'
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -97,8 +104,8 @@ class _KanbanBoardTabState extends State<KanbanBoardTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(lot['id'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                lot['status'] == 'Running' ? StatusBadge.running() : StatusBadge.idle(),
+                Text(lotId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                StatusBadge.running(),
               ],
             ),
             const SizedBox(height: 12),
@@ -106,7 +113,7 @@ class _KanbanBoardTabState extends State<KanbanBoardTab> {
               children: [
                 Icon(Icons.scale_rounded, size: 16, color: theme.textTheme.bodySmall?.color),
                 const SizedBox(width: 8),
-                Text(lot['qty'], style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                Text('$qty kg', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
               ],
             ),
             const SizedBox(height: 6),
@@ -114,7 +121,7 @@ class _KanbanBoardTabState extends State<KanbanBoardTab> {
               children: [
                 Icon(Icons.timer_outlined, size: 16, color: theme.textTheme.bodySmall?.color),
                 const SizedBox(width: 8),
-                Text('Elapsed: ${lot['time']}', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                Text('Elapsed: $timeStr', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
               ],
             ),
             const Divider(height: 24),

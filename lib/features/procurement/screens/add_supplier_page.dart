@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
+import '../providers/supplier_provider.dart';
 
-class AddSupplierPage extends StatefulWidget {
+class AddSupplierPage extends ConsumerStatefulWidget {
   const AddSupplierPage({super.key});
 
   @override
-  State<AddSupplierPage> createState() => _AddSupplierPageState();
+  ConsumerState<AddSupplierPage> createState() => _AddSupplierPageState();
 }
 
-class _AddSupplierPageState extends State<AddSupplierPage> {
+class _AddSupplierPageState extends ConsumerState<AddSupplierPage> {
   final _formKey = GlobalKey<FormState>();
   
   final _nameCtrl = TextEditingController();
@@ -42,10 +44,27 @@ class _AddSupplierPageState extends State<AddSupplierPage> {
         ConfirmField(label: 'Bank A/C', value: 'XXXX XXXX ${_acctNoCtrl.text.length > 4 ? _acctNoCtrl.text.substring(_acctNoCtrl.text.length - 4) : _acctNoCtrl.text} (Encrypted)'),
       ],
       confirmLabel: 'Save Supplier',
-      onConfirm: () {
-        // TODO: Encrypt bank details via Encrypt Engine & push to DB
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supplier created successfully')));
-        Navigator.pop(context);
+      onConfirm: () async {
+        final success = await ref.read(supplierProvider.notifier).addSupplier({
+          'name': _nameCtrl.text,
+          'location': _locationCtrl.text,
+          'contactPerson': _contactCtrl.text,
+          'phone': _phoneCtrl.text,
+          'bankName': _bankNameCtrl.text,
+          'accountNumber': _acctNoCtrl.text,
+          'ifsc': _ifscCtrl.text,
+        });
+
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Supplier created successfully')));
+            Navigator.pop(context); // close dialog
+            Navigator.pop(context); // pop page
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to create supplier')));
+            Navigator.pop(context); // close dialog
+          }
+        }
       },
     );
   }

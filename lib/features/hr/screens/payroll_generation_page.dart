@@ -1,53 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/hr_provider.dart';
 
-class PayrollGenerationPage extends StatefulWidget {
+class PayrollGenerationPage extends ConsumerStatefulWidget {
   const PayrollGenerationPage({super.key});
 
   @override
-  State<PayrollGenerationPage> createState() => _PayrollGenerationPageState();
+  ConsumerState<PayrollGenerationPage> createState() => _PayrollGenerationPageState();
 }
 
-class _PayrollGenerationPageState extends State<PayrollGenerationPage> {
+class _PayrollGenerationPageState extends ConsumerState<PayrollGenerationPage> {
   String _selectedMonth = 'June 2026';
 
-  final List<Map<String, dynamic>> payrollData = [
-    {
-      'id': 'E001',
-      'name': 'Ramesh Kumar',
-      'basic': 12000.0,
-      'piece': 4500.0,
-      'ot': 500.0,
-      'gross': 17000.0,
-      'pf': 1440.0,
-      'advance': 2000.0,
-      'net': 13560.0,
-    },
-    {
-      'id': 'E002',
-      'name': 'Suresh Singh',
-      'basic': 15000.0,
-      'piece': 0.0,
-      'ot': 1000.0,
-      'gross': 16000.0,
-      'pf': 1800.0,
-      'advance': 0.0,
-      'net': 14200.0,
-    },
-    {
-      'id': 'E003',
-      'name': 'Geeta Devi',
-      'basic': 10000.0,
-      'piece': 6000.0,
-      'ot': 0.0,
-      'gross': 16000.0,
-      'pf': 1200.0,
-      'advance': 1000.0,
-      'net': 13800.0, // Anomaly: usually lower
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(hrProvider.notifier).fetchPayroll(_selectedMonth);
+    });
+  }
 
-  void _handleGenerateAll() {
-    double totalPayout = payrollData.fold(0, (sum, emp) => sum + emp['net']);
+  void _handleGenerateAll(List<dynamic> payrollData) {
+    double totalPayout = payrollData.fold(0, (sum, emp) => sum + (emp['net'] ?? 0));
 
     showDialog(
       context: context,
@@ -91,76 +65,88 @@ class _PayrollGenerationPageState extends State<PayrollGenerationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final hrState = ref.watch(hrProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Payroll Generation')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const Text('Select Month: ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: _selectedMonth,
-                  items: ['May 2026', 'June 2026', 'July 2026'].map((m) {
-                    return DropdownMenuItem(value: m, child: Text(m));
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedMonth = val);
-                  },
+      body: hrState.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (state) {
+          final payrollData = state.payrollData ?? [];
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Text('Select Month: ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 16),
+                    DropdownButton<String>(
+                      value: _selectedMonth,
+                      items: ['May 2026', 'June 2026', 'July 2026'].map((m) {
+                        return DropdownMenuItem(value: m, child: Text(m));
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedMonth = val);
+                          ref.read(hrProvider.notifier).fetchPayroll(_selectedMonth);
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
-                columns: const [
-                  DataColumn(label: Text('Employee')),
-                  DataColumn(label: Text('Basic')),
-                  DataColumn(label: Text('Piece Earn')),
-                  DataColumn(label: Text('OT')),
-                  DataColumn(label: Text('Gross')),
-                  DataColumn(label: Text('PF/ESI')),
-                  DataColumn(label: Text('Advance EMI')),
-                  DataColumn(label: Text('Net Pay')),
-                ],
-                rows: payrollData.map((emp) {
-                  return DataRow(
-                    cells: [
-                      DataCell(Text('${emp['name']}\n(${emp['id']})')),
-                      DataCell(Text('₹${emp['basic']}')),
-                      DataCell(Text('₹${emp['piece']}')),
-                      DataCell(Text('₹${emp['ot']}')),
-                      DataCell(Text('₹${emp['gross']}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                      DataCell(Text('₹${emp['pf']}', style: const TextStyle(color: Colors.red))),
-                      DataCell(Text('₹${emp['advance']}', style: const TextStyle(color: Colors.red))),
-                      DataCell(Text(
-                        '₹${emp['net']}', 
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                      )),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+                    columns: const [
+                      DataColumn(label: Text('Employee')),
+                      DataColumn(label: Text('Basic')),
+                      DataColumn(label: Text('Piece Earn')),
+                      DataColumn(label: Text('OT')),
+                      DataColumn(label: Text('Gross')),
+                      DataColumn(label: Text('PF/ESI')),
+                      DataColumn(label: Text('Advance EMI')),
+                      DataColumn(label: Text('Net Pay')),
                     ],
-                  );
-                }).toList(),
+                    rows: payrollData.map((emp) {
+                      return DataRow(
+                        cells: [
+                          DataCell(Text('${emp['name']}\n(${emp['id']})')),
+                          DataCell(Text('₹${emp['basic'] ?? 0}')),
+                          DataCell(Text('₹${emp['piece'] ?? 0}')),
+                          DataCell(Text('₹${emp['ot'] ?? 0}')),
+                          DataCell(Text('₹${emp['gross'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text('₹${emp['pf'] ?? 0}', style: const TextStyle(color: Colors.red))),
+                          DataCell(Text('₹${emp['advance'] ?? 0}', style: const TextStyle(color: Colors.red))),
+                          DataCell(Text(
+                            '₹${emp['net'] ?? 0}', 
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                          )),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton.icon(
-                onPressed: _handleGenerateAll,
-                icon: const Icon(Icons.calculate),
-                label: const Text('Generate All Payslips', style: TextStyle(fontSize: 16)),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: () => _handleGenerateAll(payrollData),
+                    icon: const Icon(Icons.calculate),
+                    label: const Text('Generate All Payslips', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/sales_provider.dart';
 
-class CreateDispatchPage extends StatefulWidget {
+class CreateDispatchPage extends ConsumerStatefulWidget {
   const CreateDispatchPage({super.key});
 
   @override
-  State<CreateDispatchPage> createState() => _CreateDispatchPageState();
+  ConsumerState<CreateDispatchPage> createState() => _CreateDispatchPageState();
 }
 
-class _CreateDispatchPageState extends State<CreateDispatchPage> {
+class _CreateDispatchPageState extends ConsumerState<CreateDispatchPage> {
   String _order = 'ORD-2023-005';
   String _vehicle = 'MH-04-AB-1234';
+  String _driver = 'Raju';
 
   void _submit() {
     showDialog(
@@ -21,10 +24,17 @@ class _CreateDispatchPageState extends State<CreateDispatchPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dispatch created and stock updated')));
-              context.pop();
+            onPressed: () async {
+              Navigator.pop(context); // close dialog
+              final success = await ref.read(salesProvider.notifier).dispatchOrder(_order, _vehicle, _driver);
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dispatch created and stock updated')));
+                  context.pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to dispatch order.')));
+                }
+              }
             },
             child: const Text('Confirm'),
           ),

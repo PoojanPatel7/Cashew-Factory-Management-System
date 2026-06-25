@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/responsive_grid_row.dart';
+import '../providers/hr_provider.dart';
 
-class PieceWorkEntryPage extends StatefulWidget {
+class PieceWorkEntryPage extends ConsumerStatefulWidget {
   const PieceWorkEntryPage({super.key});
 
   @override
-  State<PieceWorkEntryPage> createState() => _PieceWorkEntryPageState();
+  ConsumerState<PieceWorkEntryPage> createState() => _PieceWorkEntryPageState();
 }
 
-class _PieceWorkEntryPageState extends State<PieceWorkEntryPage> {
+class _PieceWorkEntryPageState extends ConsumerState<PieceWorkEntryPage> {
   final _formKey = GlobalKey<FormState>();
   String _employeeId = 'E001';
   String _taskType = 'Shelling';
@@ -58,11 +60,30 @@ class _PieceWorkEntryPageState extends State<PieceWorkEntryPage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Piece-Work Logged Successfully')),
+              onPressed: () async {
+                final success = await ref.read(hrProvider.notifier).logPieceWork(
+                  _employeeId,
+                  _taskType,
+                  _quantity,
+                  _rate,
                 );
+
+                if (mounted) {
+                  Navigator.pop(context); // Close dialog
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Piece-Work Logged Successfully')),
+                    );
+                    _formKey.currentState!.reset();
+                    setState(() {
+                      _quantity = 0;
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to log piece-work.')),
+                    );
+                  }
+                }
               },
               child: const Text('Confirm & Save'),
             ),

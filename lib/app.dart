@@ -11,11 +11,13 @@ class CashewProApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
 
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
       title: 'CashewPro ERP',
       debugShowCheckedModeBanner: false,
       theme: getThemeData(themeMode),
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }

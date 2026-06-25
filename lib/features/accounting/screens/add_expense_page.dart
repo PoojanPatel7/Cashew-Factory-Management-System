@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/accounting_provider.dart';
 
-class AddExpensePage extends StatefulWidget {
+class AddExpensePage extends ConsumerStatefulWidget {
   const AddExpensePage({super.key});
 
   @override
-  State<AddExpensePage> createState() => _AddExpensePageState();
+  ConsumerState<AddExpensePage> createState() => _AddExpensePageState();
 }
 
-class _AddExpensePageState extends State<AddExpensePage> {
+class _AddExpensePageState extends ConsumerState<AddExpensePage> {
   final _formKey = GlobalKey<FormState>();
   String _category = 'Electricity';
   final _amountCtrl = TextEditingController();
@@ -39,12 +41,34 @@ class _AddExpensePageState extends State<AddExpensePage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context); // Close dialog
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Expense submitted for approval')),
+                
+                // Map expense category to debit account (e.g. 'Electricity Expense Account')
+                // and payment mode to credit account (e.g. 'Cash Account')
+                // Here we just use mocked IDs for demonstration
+                final debitAccId = 'acc_expense_${_category.toLowerCase()}';
+                final creditAccId = 'acc_${_paymentMode.toLowerCase()}';
+
+                final success = await ref.read(accountingProvider.notifier).logTransaction(
+                  description: _descCtrl.text,
+                  debitAccountId: debitAccId,
+                  creditAccountId: creditAccId,
+                  amount: double.tryParse(_amountCtrl.text) ?? 0,
                 );
-                context.pop(); // Go back
+
+                if (mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Expense logged successfully')),
+                    );
+                    context.pop(); // Go back
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to log expense')),
+                    );
+                  }
+                }
               },
               child: const Text('Submit'),
             ),

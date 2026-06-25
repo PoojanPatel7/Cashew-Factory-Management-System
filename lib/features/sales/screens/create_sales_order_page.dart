@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/sales_provider.dart';
 
-class CreateSalesOrderPage extends StatefulWidget {
+class CreateSalesOrderPage extends ConsumerStatefulWidget {
   const CreateSalesOrderPage({super.key});
 
   @override
-  State<CreateSalesOrderPage> createState() => _CreateSalesOrderPageState();
+  ConsumerState<CreateSalesOrderPage> createState() => _CreateSalesOrderPageState();
 }
 
-class _CreateSalesOrderPageState extends State<CreateSalesOrderPage> {
+class _CreateSalesOrderPageState extends ConsumerState<CreateSalesOrderPage> {
   String _customer = 'Premium Nuts Traders';
   final List<Map<String, dynamic>> _items = [];
 
   void _addItem() {
     setState(() {
-      _items.add({'grade': 'W320', 'qty': 100, 'rate': 750.0});
+      _items.add({'id': 'inv-123', 'grade': 'W320', 'quantity': 100, 'rate': 750.0}); // Added id and quantity instead of qty to match backend
     });
   }
 
@@ -36,10 +38,28 @@ class _CreateSalesOrderPageState extends State<CreateSalesOrderPage> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Created Successfully')));
-              context.pop();
+            onPressed: () async {
+              Navigator.pop(context); // close dialog
+
+              double totalAmount = 0;
+              for (var item in _items) {
+                totalAmount += (item['quantity'] * item['rate']);
+              }
+
+              final success = await ref.read(salesProvider.notifier).createOrder({
+                'customerId': 'cust-1', // Mocked ID
+                'totalAmount': totalAmount,
+                'inventoryItems': _items.map((i) => {'id': i['id'], 'quantity': i['quantity']}).toList(),
+              });
+
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Created Successfully')));
+                  context.pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to create order')));
+                }
+              }
             },
             child: const Text('Confirm'),
           ),
@@ -98,10 +118,10 @@ class _CreateSalesOrderPageState extends State<CreateSalesOrderPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextFormField(
-                          initialValue: item['qty'].toString(),
+                          initialValue: item['quantity'].toString(),
                           decoration: const InputDecoration(labelText: 'Qty (kg)', contentPadding: EdgeInsets.symmetric(horizontal: 12)),
                           keyboardType: TextInputType.number,
-                          onChanged: (v) => setState(() => _items[index]['qty'] = int.tryParse(v) ?? 0),
+                          onChanged: (v) => setState(() => _items[index]['quantity'] = int.tryParse(v) ?? 0),
                         ),
                       ),
                       const SizedBox(width: 8),

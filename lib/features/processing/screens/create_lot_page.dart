@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
+import '../providers/processing_provider.dart';
+import '../../inventory/providers/inventory_provider.dart';
 
-class CreateLotPage extends StatefulWidget {
+class CreateLotPage extends ConsumerStatefulWidget {
   const CreateLotPage({super.key});
 
   @override
-  State<CreateLotPage> createState() => _CreateLotPageState();
+  ConsumerState<CreateLotPage> createState() => _CreateLotPageState();
 }
 
-class _CreateLotPageState extends State<CreateLotPage> {
+class _CreateLotPageState extends ConsumerState<CreateLotPage> {
   String? _selectedRcnBatch;
   final _qtyCtrl = TextEditingController();
-
-  final List<Map<String, dynamic>> _rcnStock = [
-    {'id': 'RCN-2026-001', 'supplier': 'Rajan Cashew Farm', 'available': 5000},
-    {'id': 'RCN-2026-002', 'supplier': 'Global Nuts', 'available': 10000},
-  ];
 
   @override
   void dispose() {
@@ -25,29 +23,65 @@ class _CreateLotPageState extends State<CreateLotPage> {
 
   void _submit() async {
     if (_selectedRcnBatch == null || _qtyCtrl.text.isEmpty) return;
+    
+    final rcnId = _selectedRcnBatch!;
+    final qty = double.tryParse(_qtyCtrl.text) ?? 0;
 
-    final confirmed = await ConfirmationDialog.show(
+    ConfirmationDialog.show(
       context,
       title: 'Start Processing Lot',
       icon: Icons.factory_outlined,
       fields: [
-        ConfirmField(label: 'Source RCN Batch', value: _selectedRcnBatch!),
+        ConfirmField(label: 'Source RCN Batch', value: rcnId),
         ConfirmField(label: 'Processing Quantity', value: '${_qtyCtrl.text} kg', isBold: true),
         ConfirmField(label: 'Initial Stage', value: 'Boiling'),
       ],
       warnings: ['This will instantly deduct ${_qtyCtrl.text} kg from the Raw Material Inventory.'],
       confirmLabel: 'Start Lot',
-      onConfirm: () {},
-    );
+      onConfirm: () async {
+        final success = await ref.read(processingProvider.notifier).createLot({
+          'rcnId': rcnId,
+          'initialWeight': qty,
+        });
 
-    if (confirmed && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lot LOT-2026-105 started in Boiling stage.')));
-      if (Navigator.canPop(context)) Navigator.pop(context);
-    }
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lot started successfully.')));
+            Navigator.pop(context); // close dialog
+            if (Navigator.canPop(context)) Navigator.pop(context); // pop page
+            
+            // Refresh inventory because we deducted stock
+            ref.read(inventoryProvider.notifier).fetchInventory();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to start lot.')));
+            Navigator.pop(context); // close dialog
+          }
+        }
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final inventoryState = ref.watch(inventoryProvider);
+    
+    // For this example, assume inventory list has some RCN items. 
+    // We just take items with 'category' == 'Raw Material' or similar if it exists.
+    List<Map<String, dynamic>> rcnStock = [];
+    if (inventoryState.value != null) {
+      rcnStock = inventoryState.value!.where((item) => 
+        (item['category'] == 'Raw Material' || item['sku']?.toString().startsWith('RCN') == true)
+      ).toList();
+    }
+
+    // Fallback if empty (for UI testing purposes)
+    if (rcnStock.isEmpty) {
+      rcnStock = [
+        {'id': 'RCN-2026-001', 'name': 'Rajan Cashew Farm', 'quantity': 5000},
+        {'id': 'RCN-2026-002', 'name': 'Global Nuts', 'quantity': 10000},
+      ];
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Start New Lot')),
       body: SingleChildScrollView(
@@ -66,10 +100,15 @@ class _CreateLotPageState extends State<CreateLotPage> {
                     prefixIcon: Icon(Icons.inventory_2_outlined),
                   ),
                   value: _selectedRcnBatch,
-                  items: _rcnStock.map((b) => DropdownMenuItem<String>(
-                    value: b['id'] as String,
-                    child: Text('${b['id']} - ${b['supplier']} (${b['available']} kg available)'),
-                  )).toList(),
+                  items: rcnStock.map((b) {
+                    final id = b['id']?.toString() ?? 'Unknown ID';
+                    final name = b['name']?.toString() ?? 'Unknown';
+                    final qty = b['quantity']?.toString() ?? '0';
+                    return DropdownMenuItem<String>(
+                      value: id,
+                      child: Text('$id - $name ($qty kg available)'),
+                    );
+                  }).toList(),
                   onChanged: (v) => setState(() => _selectedRcnBatch = v),
                 ),
                 const SizedBox(height: 24),

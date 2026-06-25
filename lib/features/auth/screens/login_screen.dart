@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 
 /// Login screen with premium glassmorphism design — theme-aware
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false;
   bool _rememberMe = false;
 
   late AnimationController _animCtrl;
@@ -48,18 +49,30 @@ class _LoginScreenState extends State<LoginScreen>
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-    // TODO: Replace with real API call
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isLoading = false);
+    final success = await ref.read(authProvider.notifier).login(
+      _emailCtrl.text.trim(),
+      _passwordCtrl.text,
+    );
 
-    if (mounted) context.go('/');
+    if (success && mounted) {
+      context.go('/');
+    } else if (mounted) {
+      final error = ref.read(authProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Login failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    final authState = ref.watch(authProvider);
 
     return Scaffold(
       body: Container(
@@ -85,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         _buildLogo(cs),
                         const SizedBox(height: 40),
-                        _buildLoginCard(theme, cs),
+                        _buildLoginCard(theme, cs, authState.isLoading),
                         const SizedBox(height: 20),
                         TextButton.icon(
                           onPressed: () => context.go('/setup'),
@@ -125,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildLoginCard(ThemeData theme, ColorScheme cs) {
+  Widget _buildLoginCard(ThemeData theme, ColorScheme cs, bool isLoading) {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
@@ -197,8 +210,8 @@ class _LoginScreenState extends State<LoginScreen>
             SizedBox(
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
-                child: _isLoading
+                onPressed: isLoading ? null : _handleLogin,
+                child: isLoading
                     ? SizedBox(width: 22, height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary))
                     : const Text('Sign In', style: TextStyle(fontSize: 16)),

@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  cashew-backend:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/cashew_erp?schema=public
+      - JWT_SECRET=production_super_secret_key_change_me
+      # IMPORTANT: If encrypt-engine runs on host machine on port 3000, 
+      # use host.docker.internal (Docker Desktop) to route to it.
+      - ENCRYPT_ENGINE_URL=http://host.docker.internal:3000
+      - ENCRYPT_API_KEY=your_production_api_key
+    depends_on:
+      - db
+    networks:
+      - cashew-network
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cashew_erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cashew-network
+
+  # Optional Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - cashew-backend
+    networks:
+      - cashew-network
+
+volumes:
+  postgres_data:
+
+networks:
+  cashew-network:
+    driver: bridge

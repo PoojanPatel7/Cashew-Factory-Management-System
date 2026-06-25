@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/responsive_grid_row.dart';
+import '../providers/machinery_provider.dart';
 
-class MachineDetailPage extends StatelessWidget {
-  const MachineDetailPage({super.key});
+class MachineDetailPage extends ConsumerWidget {
+  final String machineId; // Ideally passed via route, defaulting for demo
+  const MachineDetailPage({super.key, this.machineId = '1'});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final machineryState = ref.watch(machineryProvider);
+    final telemetry = machineryState.telemetryData[machineId] ?? {};
+    
+    final status = telemetry['status'] ?? 'Idle';
+    final temp = telemetry['temperature']?.toStringAsFixed(1) ?? '0.0';
+    final pressure = telemetry['pressure']?.toStringAsFixed(2) ?? '0.00';
+    final isRunning = status == 'Running';
+
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -15,12 +26,12 @@ class MachineDetailPage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16)),
-              child: const Row(
+              decoration: BoxDecoration(color: isRunning ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16)),
+              child: Row(
                 children: [
-                  Icon(Icons.circle, color: Colors.green, size: 10),
-                  SizedBox(width: 6),
-                  Text('Running', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                  Icon(Icons.circle, color: isRunning ? Colors.green : Colors.orange, size: 10),
+                  const SizedBox(width: 6),
+                  Text(status, style: TextStyle(color: isRunning ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -38,7 +49,7 @@ class MachineDetailPage extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _buildLiveStatusTab(context),
+            _buildLiveStatusTab(context, temp, pressure),
             _buildTodayWorkTab(context),
             _buildHistoryTab(context),
             _buildMaintenanceTab(context),
@@ -49,15 +60,15 @@ class MachineDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLiveStatusTab(BuildContext context) {
+  Widget _buildLiveStatusTab(BuildContext context, String temp, String pressure) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         ResponsiveGridRow(
           children: [
-            _buildGaugeCard(context, 'Temperature', '85°C', Colors.orange),
-            _buildGaugeCard(context, 'Pressure', '1.2 atm', Colors.blue),
-            _buildGaugeCard(context, 'Power', '12.4 kW', Colors.purple),
+            _buildGaugeCard(context, 'Temperature', '$temp°C', Colors.orange, double.tryParse(temp) ?? 0, 100),
+            _buildGaugeCard(context, 'Pressure', '$pressure atm', Colors.blue, double.tryParse(pressure) ?? 0, 5),
+            _buildGaugeCard(context, 'Power', '12.4 kW', Colors.purple, 12.4, 20),
           ],
         ),
         const SizedBox(height: 24),
@@ -178,7 +189,7 @@ class MachineDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildGaugeCard(BuildContext context, String title, String value, Color color) {
+  Widget _buildGaugeCard(BuildContext context, String title, String displayValue, Color color, double numValue, double maxValue) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -192,9 +203,14 @@ class MachineDetailPage extends StatelessWidget {
                 SizedBox(
                   height: 100,
                   width: 100,
-                  child: CircularProgressIndicator(value: 0.8, color: color, strokeWidth: 8, backgroundColor: color.withValues(alpha: 0.2)),
+                  child: CircularProgressIndicator(
+                    value: maxValue > 0 ? (numValue / maxValue).clamp(0.0, 1.0) : 0.0, 
+                    color: color, 
+                    strokeWidth: 8, 
+                    backgroundColor: color.withValues(alpha: 0.2)
+                  ),
                 ),
-                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: color)),
+                Text(displayValue, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: color)),
               ],
             ),
           ],

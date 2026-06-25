@@ -1,21 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/user_role.dart';
+import '../../features/auth/providers/auth_provider.dart';
+import '../../core/network/sync_provider.dart';
 
 /// Responsive app shell: Bottom Nav (mobile) → NavigationRail (tablet) → Sidebar (desktop)
-class AppScaffold extends StatefulWidget {
+class AppScaffold extends ConsumerStatefulWidget {
   final Widget child;
   const AppScaffold({super.key, required this.child});
 
   @override
-  State<AppScaffold> createState() => _AppScaffoldState();
+  ConsumerState<AppScaffold> createState() => _AppScaffoldState();
 }
 
-class _AppScaffoldState extends State<AppScaffold> {
-  // TODO: Replace with real user from auth provider
-  final _user = UserSession.demo(role: UserRole.owner);
+class _AppScaffoldState extends ConsumerState<AppScaffold> {
   bool _railExtended = false;
+
+  UserSession get _user {
+    final authState = ref.watch(authProvider);
+    final roleStr = authState.role?.toLowerCase() ?? 'owner';
+    final UserRole roleEnum = UserRole.values.firstWhere(
+      (e) => e.name == roleStr,
+      orElse: () => UserRole.worker,
+    );
+
+    return UserSession(
+      id: 'current-user',
+      name: authState.name ?? roleEnum.displayName,
+      email: '',
+      role: roleEnum,
+      factoryId: 'factory-001',
+    );
+  }
 
   /// All nav items — filtered by role
   List<_NavItem> get _allNavItems => [
@@ -116,17 +134,49 @@ class _AppScaffoldState extends State<AppScaffold> {
         children: [
           _buildLogoHeader(theme),
           Divider(color: theme.colorScheme.outline),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _visibleNavItems.length,
-              itemBuilder: (context, i) => _buildSidebarTile(theme, _visibleNavItems[i], i),
-            ),
-          ),
+          Expanded(child: _buildNavList(theme)),
           Divider(color: theme.colorScheme.outline),
           _buildUserTile(theme),
         ],
       ),
+    );
+  }
+
+  Widget _buildNavList(ThemeData theme) {
+    final Map<String, List<_NavItem>> groupedItems = {
+      'Core': [],
+      'Operations': [],
+      'Administration': [],
+      'Settings & Help': [],
+    };
+
+    for (var item in _visibleNavItems) {
+      if (['/', '/dashboard'].contains(item.route)) {
+        groupedItems['Core']!.add(item);
+      } else if (['/procurement', '/inventory', '/processing', '/grading', '/sales', '/byproducts'].contains(item.route)) {
+        groupedItems['Operations']!.add(item);
+      } else if (['/employees', '/accounting', '/compliance', '/machinery', '/reports'].contains(item.route)) {
+        groupedItems['Administration']!.add(item);
+      } else {
+        groupedItems['Settings & Help']!.add(item);
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: groupedItems.entries.where((e) => e.value.isNotEmpty).map((entry) {
+        return ExpansionTile(
+          title: Text(entry.key, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: theme.colorScheme.primary)),
+          initiallyExpanded: true,
+          shape: const Border(), // Remove the top/bottom borders
+          iconColor: theme.colorScheme.primary,
+          collapsedIconColor: theme.colorScheme.onSurfaceVariant,
+          children: entry.value.map((item) {
+            final index = _allNavItems.indexOf(item);
+            return _buildSidebarTile(theme, item, index);
+          }).toList(),
+        );
+      }).toList(),
     );
   }
 
@@ -284,13 +334,7 @@ class _AppScaffoldState extends State<AppScaffold> {
           children: [
             _buildLogoHeader(theme),
             Divider(color: theme.colorScheme.outline),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _visibleNavItems.length,
-                itemBuilder: (ctx, i) => _buildSidebarTile(theme, _visibleNavItems[i], i),
-              ),
-            ),
+            Expanded(child: _buildNavList(theme)),
             Divider(color: theme.colorScheme.outline),
             _buildUserTile(theme),
           ],
@@ -377,29 +421,38 @@ class _AppScaffoldState extends State<AppScaffold> {
   }
 
   Widget _buildSyncIndicator(BuildContext context) {
+    final syncState = ref.watch(syncProvider);
+    final isOffline = syncState.pendingItems > 0;
+    
     return PopupMenuButton(
       tooltip: 'Sync Status',
-      icon: const Badge(
+      icon: Badge(
         smallSize: 8,
+        isLabelVisible: isOffline,
         backgroundColor: Colors.orange,
-        child: Icon(Icons.cloud_sync, color: Colors.grey),
+        child: Icon(
+          isOffline ? Icons.cloud_off : Icons.cloud_done, 
+          color: isOffline ? Colors.orange : Colors.green
+        ),
       ),
       itemBuilder: (context) => [
         const PopupMenuItem(
           enabled: false,
           child: Text('Offline Sync Engine', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           enabled: false,
-          child: Text('Pending Items: 3', style: TextStyle(color: Colors.orange)),
+          child: Text('Pending Items: ${syncState.pendingItems}', style: TextStyle(color: isOffline ? Colors.orange : Colors.green)),
         ),
-        const PopupMenuItem(
-          enabled: false,
-          child: Text('Last Sync: 10 mins ago', style: TextStyle(fontSize: 12)),
-        ),
+        if (syncState.lastSync != null)
+          PopupMenuItem(
+            enabled: false,
+            child: Text('Last Sync: ${syncState.lastSync?.toLocal().toString().split('.')[0]}', style: const TextStyle(fontSize: 12)),
+          ),
         PopupMenuItem(
           child: const Text('Force Sync Now'),
           onTap: () {
+            ref.read(syncProvider.notifier).forceSync();
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Syncing data with server...')));
           },
         ),

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/hr_provider.dart';
 
-class AddEmployeePage extends StatefulWidget {
+class AddEmployeePage extends ConsumerStatefulWidget {
   const AddEmployeePage({super.key});
 
   @override
-  State<AddEmployeePage> createState() => _AddEmployeePageState();
+  ConsumerState<AddEmployeePage> createState() => _AddEmployeePageState();
 }
 
-class _AddEmployeePageState extends State<AddEmployeePage> {
+class _AddEmployeePageState extends ConsumerState<AddEmployeePage> {
   final _formKey = GlobalKey<FormState>();
   String _name = '';
   String _type = 'Worker';
@@ -44,7 +46,7 @@ class _AddEmployeePageState extends State<AddEmployeePage> {
                 children: [
                   const Icon(Icons.lock, size: 16, color: Colors.green),
                   const SizedBox(width: 4),
-                  Text('PAN: Encrypted'),
+                  const Text('PAN: Encrypted'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -60,12 +62,27 @@ class _AddEmployeePageState extends State<AddEmployeePage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context); // Close dialog
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Employee added securely.')),
-                );
-                context.pop(); // Go back
+                final success = await ref.read(hrProvider.notifier).createEmployee({
+                  'name': _name,
+                  'phone': '0000000000', // Mock phone
+                  'aadhar': _aadhaar,
+                  'bankDetails': 'N/A',
+                  'role': _type,
+                  'department': _department,
+                  'dailyWage': 500, // Mock wage
+                });
+                if (success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Employee added securely.')),
+                  );
+                  context.pop(); // Go back
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to add employee.')),
+                  );
+                }
               },
               child: const Text('Save Employee'),
             ),
@@ -163,6 +180,20 @@ class _AddEmployeePageState extends State<AddEmployeePage> {
               textCapitalization: TextCapitalization.characters,
               validator: (val) => val == null || val.isEmpty ? 'Required' : null,
               onSaved: (val) => _pan = val ?? '',
+            ),
+            const SizedBox(height: 24),
+            _buildSectionHeader('Biometric Access'),
+            SwitchListTile(
+              title: const Text('Save Face Data for Self Check-in'),
+              subtitle: const Text('Allows employee to check-in using the Face/ID scanner at the entrance.'),
+              value: true,
+              onChanged: (bool value) {
+                // Future: launch camera to register face
+                if (value) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Face scanning will be required upon first login.')));
+                }
+              },
+              secondary: const Icon(Icons.face),
             ),
             const SizedBox(height: 32),
             

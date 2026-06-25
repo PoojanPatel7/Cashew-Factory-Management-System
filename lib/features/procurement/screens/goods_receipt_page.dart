@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
+import '../providers/po_provider.dart';
 
-class GoodsReceiptPage extends StatefulWidget {
+class GoodsReceiptPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? poData;
   const GoodsReceiptPage({super.key, this.poData});
 
   @override
-  State<GoodsReceiptPage> createState() => _GoodsReceiptPageState();
+  ConsumerState<GoodsReceiptPage> createState() => _GoodsReceiptPageState();
 }
 
-class _GoodsReceiptPageState extends State<GoodsReceiptPage> {
+class _GoodsReceiptPageState extends ConsumerState<GoodsReceiptPage> {
   final _actualQtyCtrl = TextEditingController();
   final _actualMoistureCtrl = TextEditingController();
   final _qcNotesCtrl = TextEditingController();
   
   double get _variance {
     final actual = double.tryParse(_actualQtyCtrl.text) ?? 0;
-    final expected = double.tryParse(widget.poData?['qty']?.replaceAll(',', '') ?? '0') ?? 0;
+    final expected = double.tryParse(widget.poData?['qty']?.toString().replaceAll(',', '') ?? '0') ?? 0;
     if (expected == 0) return 0;
     return ((actual - expected) / expected) * 100;
   }
@@ -54,9 +56,31 @@ class _GoodsReceiptPageState extends State<GoodsReceiptPage> {
         ConfirmField(label: 'Variance', value: '$_variance > 0 ? "+" : ""$variancePercent%', isBold: true, valueColor: varColor),
       ],
       confirmLabel: 'Receive to Inventory',
-      onConfirm: () {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inventory Updated Successfully')));
-        Navigator.pop(context);
+      onConfirm: () async {
+        final poId = widget.poData?['id'] as String?;
+        if (poId == null) return;
+
+        // In a real scenario, you would have a specific inventory item ID for RCN.
+        // For now, we mock an inventory item ID or fetch it if provided in poData.
+        final inventoryItemId = widget.poData?['inventoryItemId'] ?? 'rcn-id';
+
+        final success = await ref.read(poProvider.notifier).receiveGoods(poId, [
+          {
+            'id': inventoryItemId,
+            'quantity': double.tryParse(_actualQtyCtrl.text) ?? 0.0,
+          }
+        ]);
+
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inventory Updated Successfully')));
+            Navigator.pop(context); // Close dialog
+            Navigator.pop(context); // Pop screen
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update inventory')));
+            Navigator.pop(context); // Close dialog
+          }
+        }
       },
     );
   }

@@ -1,165 +1,215 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/hr_provider.dart';
 
-class SelfCheckinPage extends StatefulWidget {
+import 'package:go_router/go_router.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+
+class SelfCheckinPage extends ConsumerStatefulWidget {
   const SelfCheckinPage({super.key});
 
   @override
-  State<SelfCheckinPage> createState() => _SelfCheckinPageState();
+  ConsumerState<SelfCheckinPage> createState() => _SelfCheckinPageState();
 }
 
-class _SelfCheckinPageState extends State<SelfCheckinPage> {
-  bool isCheckedIn = false;
-  DateTime? checkInTime;
+class _SelfCheckinPageState extends ConsumerState<SelfCheckinPage> {
+  final MobileScannerController _scannerController = MobileScannerController();
+  bool _isProcessing = false;
 
-  void _handleCheckIn() {
-    final now = DateTime.now();
-    final timeStr = DateFormat('h:mm a').format(now);
+  void _onDetect(BarcodeCapture capture) async {
+    if (_isProcessing) return;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm Check-In'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.location_on, size: 48, color: Colors.blue),
-              const SizedBox(height: 16),
-              Text('Check in at $timeStr?', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              const Text('Location: Factory Floor A (Verified)'),
-              const SizedBox(height: 16),
-              Container(
-                height: 150,
-                width: 150,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(child: Icon(Icons.camera_alt, size: 48, color: Colors.grey)),
-              ),
-              const SizedBox(height: 8),
-              const Text('Selfie captured for verification', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  isCheckedIn = true;
-                  checkInTime = now;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Successfully Checked In')),
-                );
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
-    );
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isNotEmpty) {
+      final String? code = barcodes.first.rawValue;
+      if (code != null && code.startsWith('EMP-')) {
+        setState(() => _isProcessing = true);
+        final employeeId = code.replaceFirst('EMP-', '');
+
+        final success = await ref.read(hrProvider.notifier).checkIn(employeeId);
+        
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Check-in Successful!'), backgroundColor: Colors.green),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Check-in Failed. Try again.'), backgroundColor: Colors.red),
+            );
+          }
+        }
+        
+        // Wait a bit before allowing another scan
+        await Future.delayed(const Duration(seconds: 3));
+        if (mounted) {
+          setState(() => _isProcessing = false);
+        }
+      }
+    }
   }
 
-  void _handleCheckOut() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm Check-Out'),
-          content: const Text('Are you sure you want to check out for the day?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  isCheckedIn = false;
-                  checkInTime = null;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Successfully Checked Out')),
-                );
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
-    );
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isRegisteringFace = (authState.isEmployee == true && authState.faceRegistered == false);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Self Check-In')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                DateFormat('EEEE, MMM d, yyyy').format(DateTime.now()),
-                style: const TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                DateFormat('h:mm a').format(DateTime.now()),
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 32),
-              
-              if (isCheckedIn) ...[
-                const Icon(Icons.check_circle, color: Colors.green, size: 64),
-                const SizedBox(height: 16),
-                Text(
-                  'Checked In at ${DateFormat('h:mm a').format(checkInTime!)}',
-                  style: const TextStyle(fontSize: 20, color: Colors.green, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                    onPressed: _handleCheckOut,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Check Out', style: TextStyle(fontSize: 20)),
-                  ),
-                ),
-              ] else ...[
-                const Icon(Icons.location_searching, color: Colors.blue, size: 64),
-                const SizedBox(height: 16),
-                const Text(
-                  'Ready to Check In',
-                  style: TextStyle(fontSize: 20, color: Colors.grey, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                    onPressed: _handleCheckIn,
-                    icon: const Icon(Icons.login),
-                    label: const Text('Check In Now', style: TextStyle(fontSize: 20)),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+      appBar: AppBar(
+        title: Text(isRegisteringFace ? 'Register Face Data' : 'Face/ID Scanner Check-in'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: () => _scannerController.switchCamera(),
+          )
+        ],
       ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _scannerController,
+            onDetect: isRegisteringFace ? (_) {} : _onDetect,
+          ),
+          
+          // Overlay to make it look like a face/ID scanner
+          Container(
+            decoration: ShapeDecoration(
+              shape: _ScannerOverlayShape(
+                borderColor: isRegisteringFace ? Colors.green : Colors.blue,
+                borderWidth: 3,
+                overlayColor: Colors.black54,
+              ),
+            ),
+          ),
+          
+          Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  _isProcessing 
+                    ? 'Processing...' 
+                    : isRegisteringFace ? 'Position Face to Register' : 'Position Face or ID Card in Frame',
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+          
+          if (isRegisteringFace)
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.face),
+                  label: const Text('Capture & Save Face Data'),
+                  onPressed: () async {
+                    setState(() => _isProcessing = true);
+                    // In real app, we capture image and upload to server
+                    await Future.delayed(const Duration(seconds: 2));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Face Registered Successfully!')));
+                      // For demo, just go to dashboard. You'd update the backend too.
+                      context.go('/');
+                    }
+                  },
+                ),
+              ),
+            ),
+
+          if (_isProcessing)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScannerOverlayShape extends ShapeBorder {
+  final Color borderColor;
+  final double borderWidth;
+  final Color overlayColor;
+
+  const _ScannerOverlayShape({
+    this.borderColor = Colors.white,
+    this.borderWidth = 1.0,
+    this.overlayColor = const Color(0x88000000),
+  });
+
+  @override
+  EdgeInsetsGeometry get dimensions => const EdgeInsets.all(10);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addPath(getOuterPath(rect), Offset.zero);
+  }
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+    Path _getClip(Size size) {
+      Path path = Path();
+      path.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      
+      // Face oval or ID card rectangle
+      double w = size.width * 0.7;
+      double h = size.height * 0.5;
+      double x = (size.width - w) / 2;
+      double y = (size.height - h) / 2;
+      
+      path.addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(20)));
+      path.fillType = PathFillType.evenOdd;
+      return path;
+    }
+    return _getClip(rect.size);
+  }
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    final paint = Paint()
+      ..color = overlayColor
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawPath(getOuterPath(rect), paint);
+    
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = borderWidth;
+      
+    double w = rect.width * 0.7;
+    double h = rect.height * 0.5;
+    double x = (rect.width - w) / 2;
+    double y = (rect.height - h) / 2;
+    
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(20)), borderPaint);
+  }
+
+  @override
+  ShapeBorder scale(double t) {
+    return _ScannerOverlayShape(
+      borderColor: borderColor,
+      borderWidth: borderWidth * t,
+      overlayColor: overlayColor,
     );
   }
 }

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/confirmation_dialog.dart';
+import '../providers/quality_provider.dart';
 
-class GradingEntryPage extends StatefulWidget {
+class GradingEntryPage extends ConsumerStatefulWidget {
   const GradingEntryPage({super.key});
 
   @override
-  State<GradingEntryPage> createState() => _GradingEntryPageState();
+  ConsumerState<GradingEntryPage> createState() => _GradingEntryPageState();
 }
 
-class _GradingEntryPageState extends State<GradingEntryPage> {
+class _GradingEntryPageState extends ConsumerState<GradingEntryPage> {
   final Map<String, TextEditingController> _controllers = {
     'W180': TextEditingController(),
     'W210': TextEditingController(),
@@ -31,6 +33,7 @@ class _GradingEntryPageState extends State<GradingEntryPage> {
   };
 
   double _totalInput = 1200.0; // Mock total input weight of the lot
+  String _lotId = 'LOT-2026-100'; // Mock lot ID
 
   @override
   void initState() {
@@ -80,20 +83,32 @@ class _GradingEntryPageState extends State<GradingEntryPage> {
       }
     });
 
-    final confirmed = await ConfirmationDialog.show(
+    ConfirmationDialog.show(
       context,
       title: 'Confirm Grading Entry',
       icon: Icons.done_all_rounded,
       fields: fields,
-      warnings: ['This will finalize LOT-2026-100 and add the graded kernels to Finished Goods Stock.'],
+      warnings: ['This will finalize $_lotId and add the graded kernels to Finished Goods Stock.'],
       confirmLabel: 'Confirm & Finalize',
-      onConfirm: () {},
-    );
+      onConfirm: () async {
+        final success = await ref.read(qualityProvider.notifier).submitGrade(
+          _lotId,
+          vals,
+          'Final grading complete. Checked by QC.'
+        );
 
-    if (confirmed && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading complete. Stock updated!')));
-      if (Navigator.canPop(context)) Navigator.pop(context);
-    }
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading complete. Stock updated!')));
+            Navigator.pop(context); // close dialog
+            if (Navigator.canPop(context)) Navigator.pop(context); // pop page
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit grading.')));
+            Navigator.pop(context); // close dialog
+          }
+        }
+      },
+    );
   }
 
   @override

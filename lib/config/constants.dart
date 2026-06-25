@@ -8,8 +8,8 @@ class AppConstants {
   static const String appTagline = 'Complete Cashew Factory Management';
 
   // API Configuration (overridden by environment)
-  static const String defaultApiBaseUrl = 'http://localhost:4000/api';
-  static const String defaultEncryptEngineUrl = 'http://localhost:3100/api/v1';
+  static const String defaultApiBaseUrl = 'http://127.0.0.1:4000/api';
+  static const String defaultEncryptEngineUrl = 'http://127.0.0.1:3100/api/v1';
 
   // Timeouts
   static const Duration apiTimeout = Duration(seconds: 30);

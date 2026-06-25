@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/common_widgets.dart';
+import '../providers/processing_provider.dart';
 
-class ProcessingDashboardTab extends StatelessWidget {
+class ProcessingDashboardTab extends ConsumerWidget {
   const ProcessingDashboardTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isWide = MediaQuery.of(context).size.width > 800;
+
+    final lotState = ref.watch(processingProvider);
+    final lots = lotState.value ?? [];
+
+    final activeLots = lots.where((l) => l['status'] == 'Active').length;
+    
+    // Compute pipeline counts
+    final pipelineCounts = <String, int>{
+      'Boiling': 0, 'Cooling': 0, 'Shelling': 0, 
+      'Borma': 0, 'Peeling': 0, 'Grading': 0,
+    };
+    
+    for (var lot in lots) {
+      if (lot['status'] == 'Active') {
+        final stage = lot['stage']?.toString() ?? '';
+        if (pipelineCounts.containsKey(stage)) {
+          pipelineCounts[stage] = pipelineCounts[stage]! + 1;
+        }
+      }
+    }
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -21,13 +43,22 @@ class ProcessingDashboardTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Today\'s Performance', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Today\'s Performance', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => ref.read(processingProvider.notifier).fetchLots(),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 16,
               runSpacing: 16,
               children: [
-                _buildStatCard(theme, 'Active Lots', '12', Icons.view_in_ar, Colors.blue, isWide, context),
+                _buildStatCard(theme, 'Active Lots', activeLots.toString(), Icons.view_in_ar, Colors.blue, isWide, context),
                 _buildStatCard(theme, 'Output Today', '1,250 kg', Icons.scale, Colors.green, isWide, context),
                 _buildStatCard(theme, 'Overall Yield', '24.5%', Icons.pie_chart, Colors.orange, isWide, context),
                 _buildStatCard(theme, 'Pending Approvals', '3', Icons.pending_actions, Colors.red, isWide, context),
@@ -42,17 +73,17 @@ class ProcessingDashboardTab extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildPipelineStage(theme, 'Boiling', 2),
+                  _buildPipelineStage(theme, 'Boiling', pipelineCounts['Boiling']!),
                   _pipelineConnector(theme),
-                  _buildPipelineStage(theme, 'Cooling', 3),
+                  _buildPipelineStage(theme, 'Cooling', pipelineCounts['Cooling']!),
                   _pipelineConnector(theme),
-                  _buildPipelineStage(theme, 'Shelling', 1),
+                  _buildPipelineStage(theme, 'Shelling', pipelineCounts['Shelling']!),
                   _pipelineConnector(theme),
-                  _buildPipelineStage(theme, 'Borma', 4),
+                  _buildPipelineStage(theme, 'Borma', pipelineCounts['Borma']!),
                   _pipelineConnector(theme),
-                  _buildPipelineStage(theme, 'Peeling', 0),
+                  _buildPipelineStage(theme, 'Peeling', pipelineCounts['Peeling']!),
                   _pipelineConnector(theme),
-                  _buildPipelineStage(theme, 'Grading', 2),
+                  _buildPipelineStage(theme, 'Grading', pipelineCounts['Grading']!),
                 ],
               ),
             ),

@@ -81,8 +81,12 @@ import '../features/notifications/screens/notification_center_page.dart';
 import '../features/help/screens/help_faq_page.dart';
 import '../shared/widgets/app_scaffold.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../features/auth/providers/auth_provider.dart';
+
 /// CashewPro ERP — App Router Configuration
-final appRouter = GoRouter(
+final routerProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
   initialLocation: '/login',
   routes: [
     // ── Auth Routes ──
@@ -549,7 +553,29 @@ final appRouter = GoRouter(
       ],
     ),
   ],
+  redirect: (context, state) {
+    final authState = ref.read(authProvider);
+    final isGoingToLogin = state.uri.toString() == '/login';
+    final isGoingToSetup = state.uri.toString() == '/setup';
+    
+    if (!authState.isAuthenticated && !isGoingToLogin && !isGoingToSetup) {
+      return '/login';
+    }
+    
+    if (authState.isAuthenticated) {
+      if (authState.isEmployee == true && authState.faceRegistered == false && state.uri.toString() != '/employees/self_checkin') {
+        return '/employees/self_checkin'; // force them to set up face
+      }
+      
+      if (isGoingToLogin) {
+        return '/';
+      }
+    }
+    
+    return null;
+  },
 );
+});
 
 /// Placeholder screen for modules not yet built
 class _ComingSoonScreen extends StatelessWidget {

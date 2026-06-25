@@ -1,27 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/hr_provider.dart';
 
-class AttendanceDashboardPage extends StatefulWidget {
+class AttendanceDashboardPage extends ConsumerStatefulWidget {
   const AttendanceDashboardPage({super.key});
 
   @override
-  State<AttendanceDashboardPage> createState() => _AttendanceDashboardPageState();
+  ConsumerState<AttendanceDashboardPage> createState() => _AttendanceDashboardPageState();
 }
 
-class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
+class _AttendanceDashboardPageState extends ConsumerState<AttendanceDashboardPage> {
   DateTime selectedDate = DateTime.now();
+  Map<String, String> localStatusMap = {};
 
-  final List<Map<String, dynamic>> employees = [
-    {'id': 'E001', 'name': 'Ramesh Kumar', 'dept': 'Shelling', 'status': 'Present'},
-    {'id': 'E002', 'name': 'Suresh Singh', 'dept': 'Peeling', 'status': 'Absent'},
-    {'id': 'E003', 'name': 'Geeta Devi', 'dept': 'Grading', 'status': 'Late'},
-    {'id': 'E004', 'name': 'Amit Patel', 'dept': 'Maintenance', 'status': 'Present'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(hrProvider.notifier).fetchEmployees());
+  }
 
   @override
   Widget build(BuildContext context) {
-    int present = employees.where((e) => e['status'] == 'Present').length;
-    int absent = employees.where((e) => e['status'] == 'Absent').length;
-    int late = employees.where((e) => e['status'] == 'Late').length;
+    final hrState = ref.watch(hrProvider);
+    final employees = hrState.value?.employees ?? [];
+
+    // Initialize local state for any employee not already in the map
+    for (var emp in employees) {
+      if (!localStatusMap.containsKey(emp['id'])) {
+        localStatusMap[emp['id']] = 'Present'; // default assumption
+      }
+    }
+
+    int present = localStatusMap.values.where((s) => s == 'Present').length;
+    int absent = localStatusMap.values.where((s) => s == 'Absent').length;
+    int late = localStatusMap.values.where((s) => s == 'Late').length;
+    int total = employees.length > 0 ? employees.length : 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,7 +58,9 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
           ),
         ],
       ),
-      body: Column(
+      body: employees.isEmpty 
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
         children: [
           // Summary Cards
           Padding(
@@ -53,9 +68,9 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildSummaryCard('Present', present, Colors.green),
-                _buildSummaryCard('Absent', absent, Colors.red),
-                _buildSummaryCard('Late', late, Colors.orange),
+                _buildSummaryCard('Present', present, total, Colors.green),
+                _buildSummaryCard('Absent', absent, total, Colors.red),
+                _buildSummaryCard('Late', late, total, Colors.orange),
               ],
             ),
           ),
@@ -66,19 +81,24 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
               itemCount: employees.length,
               itemBuilder: (context, index) {
                 final emp = employees[index];
+                final String id = emp['id'];
+                final String name = emp['name'] ?? 'Unknown';
+                final String dept = emp['department'] ?? 'Unknown';
+                final String status = localStatusMap[id] ?? 'Present';
+
                 return ListTile(
-                  leading: CircleAvatar(child: Text(emp['name'][0])),
-                  title: Text(emp['name']),
-                  subtitle: Text(emp['dept']),
+                  leading: CircleAvatar(child: Text(name[0])),
+                  title: Text(name),
+                  subtitle: Text(dept),
                   trailing: DropdownButton<String>(
-                    value: emp['status'],
+                    value: status,
                     items: ['Present', 'Absent', 'Late', 'Half-Day'].map((s) {
                       return DropdownMenuItem(value: s, child: Text(s));
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() {
-                          emp['status'] = val;
+                          localStatusMap[id] = val;
                         });
                       }
                     },
@@ -90,7 +110,8 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
+          // In real app, we would send the whole localStatusMap to backend
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Attendance Saved Successfully!')),
           );
@@ -101,7 +122,7 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
     );
   }
 
-  Widget _buildSummaryCard(String title, int count, Color color) {
+  Widget _buildSummaryCard(String title, int count, int total, Color color) {
     return Column(
       children: [
         Stack(
@@ -111,7 +132,7 @@ class _AttendanceDashboardPageState extends State<AttendanceDashboardPage> {
               height: 60,
               width: 60,
               child: CircularProgressIndicator(
-                value: count / employees.length,
+                value: count / total,
                 color: color,
                 backgroundColor: color.withOpacity(0.2),
                 strokeWidth: 6,

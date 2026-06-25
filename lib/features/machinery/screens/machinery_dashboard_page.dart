@@ -1,16 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/widgets/responsive_grid_row.dart';
+import '../providers/machinery_provider.dart';
 
-class MachineryDashboardPage extends StatelessWidget {
+class MachineryDashboardPage extends ConsumerWidget {
   const MachineryDashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final machineryState = ref.watch(machineryProvider);
+    final machines = machineryState.machines.value ?? [];
+    
+    int running = 0;
+    int idle = 0;
+    int maintenance = 0;
+    int breakdown = 0;
+
+    for (var m in machines) {
+      final telemetry = machineryState.telemetryData[m['id']] ?? {};
+      final status = telemetry['status'] ?? m['status'] ?? 'Idle';
+      
+      if (status == 'Running') running++;
+      else if (status == 'Idle') idle++;
+      else if (status == 'Maintenance') maintenance++;
+      else if (status == 'Breakdown') breakdown++;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Machinery Portal'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.read(machineryProvider.notifier).fetchMachines(),
+            tooltip: 'Refresh',
+          ),
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () {},
@@ -37,15 +62,15 @@ class MachineryDashboardPage extends StatelessWidget {
           const SizedBox(height: 16),
           ResponsiveGridRow(
             children: [
-              _buildStatusCard(context, 'Running', '8', Colors.green),
-              _buildStatusCard(context, 'Idle', '2', Colors.blue),
+              _buildStatusCard(context, 'Running', running.toString(), Colors.green),
+              _buildStatusCard(context, 'Idle', idle.toString(), Colors.blue),
             ],
           ),
           const SizedBox(height: 16),
           ResponsiveGridRow(
             children: [
-              _buildStatusCard(context, 'Maintenance', '1', Colors.orange),
-              _buildStatusCard(context, 'Breakdown', '0', Colors.red),
+              _buildStatusCard(context, 'Maintenance', maintenance.toString(), Colors.orange),
+              _buildStatusCard(context, 'Breakdown', breakdown.toString(), Colors.red),
             ],
           ),
           const SizedBox(height: 24),
@@ -67,18 +92,11 @@ class MachineryDashboardPage extends StatelessWidget {
             child: Stack(
               children: [
                 const Center(child: Text('Floor Map Rendering...', style: TextStyle(color: Colors.grey))),
-                Positioned(
-                  top: 50, left: 50,
-                  child: _buildMapPin(context, 'Borma #1', Colors.green),
-                ),
-                Positioned(
-                  top: 150, left: 100,
-                  child: _buildMapPin(context, 'Peeling #2', Colors.orange),
-                ),
-                Positioned(
-                  top: 80, right: 80,
-                  child: _buildMapPin(context, 'Grader A', Colors.green),
-                ),
+                if (machines.isNotEmpty)
+                  Positioned(
+                    top: 50, left: 50,
+                    child: _buildMapPin(context, machines.first['name'] ?? 'Borma #1', Colors.green),
+                  ),
               ],
             ),
           ),
@@ -88,8 +106,8 @@ class MachineryDashboardPage extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.warning, color: Colors.orange),
-              title: const Text('Peeling Machine #2'),
-              subtitle: const Text('Maintenance due in 2 days (2000 hours reached)'),
+              title: const Text('System Watcher'),
+              subtitle: const Text('Telemetry checks active.'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.goNamed('schedule_maintenance'),
             ),

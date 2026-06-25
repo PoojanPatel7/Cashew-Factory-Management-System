@@ -1,49 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/hr_provider.dart';
 
-class EmployeeHubScreen extends StatefulWidget {
+class EmployeeHubScreen extends ConsumerStatefulWidget {
   const EmployeeHubScreen({super.key});
 
   @override
-  State<EmployeeHubScreen> createState() => _EmployeeHubScreenState();
+  ConsumerState<EmployeeHubScreen> createState() => _EmployeeHubScreenState();
 }
 
-class _EmployeeHubScreenState extends State<EmployeeHubScreen> {
-  final List<Map<String, dynamic>> mockEmployees = [
-    {
-      'id': 'E001',
-      'name': 'Ramesh Kumar',
-      'type': 'Worker',
-      'department': 'Shelling',
-      'status': 'Active',
-      'aadhaar': 'XXXX-1234',
-    },
-    {
-      'id': 'E002',
-      'name': 'Suresh Singh',
-      'type': 'Operator',
-      'department': 'Peeling',
-      'status': 'Active',
-      'aadhaar': 'XXXX-5678',
-    },
-    {
-      'id': 'E003',
-      'name': 'Geeta Devi',
-      'type': 'Worker',
-      'department': 'Grading',
-      'status': 'On Leave',
-      'aadhaar': 'XXXX-9012',
-    },
-  ];
-
+class _EmployeeHubScreenState extends ConsumerState<EmployeeHubScreen> {
   String searchQuery = '';
   String selectedType = 'All';
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(hrProvider.notifier).fetchEmployees());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filteredEmployees = mockEmployees.where((emp) {
-      final matchesSearch = emp['name'].toLowerCase().contains(searchQuery.toLowerCase()) || 
-                            emp['id'].toLowerCase().contains(searchQuery.toLowerCase());
+    final hrState = ref.watch(hrProvider);
+    final employees = hrState.value?.employees ?? [];
+
+    final filteredEmployees = employees.where((emp) {
+      final matchesSearch = emp['name'].toString().toLowerCase().contains(searchQuery.toLowerCase()) || 
+                            emp['id'].toString().toLowerCase().contains(searchQuery.toLowerCase());
       final matchesType = selectedType == 'All' || emp['type'] == selectedType;
       return matchesSearch && matchesType;
     }).toList();
