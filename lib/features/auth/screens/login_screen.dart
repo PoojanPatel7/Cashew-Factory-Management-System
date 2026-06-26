@@ -18,6 +18,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isSignUp = false;
+  final _nameCtrl = TextEditingController();
+  final _pinCtrl = TextEditingController();
 
   late AnimationController _animCtrl;
   late Animation<double> _fadeIn;
@@ -43,6 +46,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _animCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
+    _nameCtrl.dispose();
+    _pinCtrl.dispose();
     super.dispose();
   }
 
@@ -62,18 +67,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   void _handleEmailLogin() async {
     if (!_formKey.currentState!.validate()) return;
-    final success = await ref.read(authProvider.notifier).login(
-      _emailCtrl.text.trim(),
-      _passwordCtrl.text,
-    );
-    if (!success && mounted) {
-      final error = ref.read(authProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error ?? 'Login failed'),
-          backgroundColor: Colors.red,
-        ),
+    
+    if (_isSignUp) {
+      if (_pinCtrl.text != '5252') {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Developer PIN'), backgroundColor: Colors.red));
+         return;
+      }
+      final success = await ref.read(authProvider.notifier).register(
+        _nameCtrl.text.trim(),
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text,
+        '',
       );
+      if (!success && mounted) {
+        final error = ref.read(authProvider).error;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error ?? 'Sign up failed'), backgroundColor: Colors.red));
+      }
+    } else {
+      final success = await ref.read(authProvider.notifier).login(
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text,
+      );
+      if (!success && mounted) {
+        final error = ref.read(authProvider).error;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error ?? 'Login failed'), backgroundColor: Colors.red));
+      }
+    }
+  }
+  
+  void _handleForgotPassword() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid email address first')));
+      return;
+    }
+    final success = await ref.read(authProvider.notifier).resetPassword(email);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Password reset link sent!' : (ref.read(authProvider).error ?? 'Failed to send link')),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ));
     }
   }
 
@@ -168,10 +201,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Welcome Back',
+            Text(_isSignUp ? 'Create Account' : 'Welcome Back',
               style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
             const SizedBox(height: 4),
-            Text('Sign in to manage your factory',
+            Text(_isSignUp ? 'Sign up to create a factory' : 'Sign in to manage your factory',
               style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)), textAlign: TextAlign.center),
             const SizedBox(height: 32),
 
@@ -210,8 +243,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
             const SizedBox(height: 24),
 
+
+            if (_isSignUp) ...[
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Full Name', 
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Please enter your name';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
             TextFormField(
               controller: _emailCtrl,
+
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'Email', 
@@ -248,6 +299,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
             const SizedBox(height: 16),
 
+            if (_isSignUp) ...[
+              TextFormField(
+                controller: _pinCtrl,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Developer PIN', 
+                  prefixIcon: const Icon(Icons.security),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Required for Sign Up';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+
             Row(
               children: [
                 SizedBox(
@@ -261,13 +331,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 const SizedBox(width: 8),
                 Expanded(child: Text('Remember me', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7), fontSize: 13))),
                 TextButton(
-                  onPressed: () {}, 
+                  onPressed: _handleForgotPassword, 
                   child: const Text('Forgot Password?', style: TextStyle(fontSize: 13))
                 ),
               ],
             ),
             const SizedBox(height: 24),
 
+
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isSignUp = !_isSignUp;
+                  _formKey.currentState?.reset();
+                });
+              },
+              child: Text(_isSignUp ? 'Already have an account? Sign In' : 'No account? Create one (Requires PIN)'),
+            ),
             SizedBox(
               height: 50,
               child: ElevatedButton(
@@ -279,7 +360,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 ),
                 child: isLoading
                     ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary))
-                    : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    : Text(_isSignUp ? 'Sign Up' : 'Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

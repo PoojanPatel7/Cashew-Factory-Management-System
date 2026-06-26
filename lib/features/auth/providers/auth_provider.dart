@@ -104,7 +104,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final googleProvider = GoogleAuthProvider();
-      final userCredential = await _auth.signInWithPopup(googleProvider);
+      UserCredential userCredential;
+      
+      if (kIsWeb) {
+        userCredential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        userCredential = await _auth.signInWithProvider(googleProvider);
+      }
       
       if (userCredential.user != null) {
         // The _checkInitialAuth listener will pick up the user change and load from Firestore
@@ -193,6 +199,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on FirebaseAuthException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message ?? 'Registration failed.');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'An unexpected error occurred.');
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message ?? 'Failed to send reset email.');
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'An unexpected error occurred.');
