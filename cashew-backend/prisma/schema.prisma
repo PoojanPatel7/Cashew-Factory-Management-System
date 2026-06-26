@@ -8,303 +8,170 @@ datasource db {
 }
 
 // -----------------------------------------------------------------------------
-// 1. AUTHENTICATION & USERS
+// FACTORY & AUTH
 // -----------------------------------------------------------------------------
+
+model Factory {
+  id                String           @id @default(uuid())
+  name              String
+  weighAtEveryStage Boolean          @default(true)
+  users             User[]
+  rawStocks         RawStock[]
+  sortings          Sorting[]
+  lots              Lot[]
+  processingSteps   ProcessingStep[]
+  finishedStocks    FinishedStock[]
+  dispatches        Dispatch[]
+  activityLogs      ActivityLog[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
 
 model User {
-  id             String     @id @default(uuid())
-  email          String     @unique
-  passwordHash   String
-  role           String   @default("WORKER")
-  encryptedName  String     // Passed through Encrypt Engine
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  
-  auditLogs      AuditLog[]
-}
-
-
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  action    String
-  details   String
-  ipAddress String?
-  createdAt DateTime @default(now())
-
-  user      User?    @relation(fields: [userId], references: [id])
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("OWNER")
+  name         String   @default("Factory Owner")
+  factoryId    String?
+  factory      Factory? @relation(fields: [factoryId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // -----------------------------------------------------------------------------
-// 2. PROCUREMENT & INVENTORY
+// RAW STOCK — Cashew arrives at the factory
 // -----------------------------------------------------------------------------
 
-model Supplier {
-  id                   String          @id @default(uuid())
-  encryptedName        String
-  encryptedPhone       String
-  encryptedBankDetails String
-  gstin                String?
-  status               String          @default("ACTIVE")
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-
-  purchaseOrders       PurchaseOrder[]
-}
-
-model PurchaseOrder {
-  id              String         @id @default(uuid())
-  supplierId      String
-  date            DateTime       @default(now())
-  itemType        String         // e.g., "RCN", "Packaging"
-  quantity        Float          // In Kg or Units
-  encryptedPrice  String         // Price per unit
-  status          String       @default("PENDING")
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  supplier        Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  goodsReceipts   GoodsReceipt[]
-}
-
-
-
-model GoodsReceipt {
-  id              String        @id @default(uuid())
-  purchaseOrderId String
-  receiveDate     DateTime      @default(now())
-  receivedQty     Float
-  notes           String?
-
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-}
-
-model InventoryItem {
-  id            String   @id @default(uuid())
-  category      String   // "RCN", "WIP", "Finished Goods", "Spares", "Packaging"
-  itemName      String
-  currentStock  Float    @default(0)
-  unit          String   // "kg", "pcs", "tins"
-  minThreshold  Float    @default(0)
-  updatedAt     DateTime @updatedAt
-
-  stockLogs     StockLog[]
-}
-
-model StockLog {
-  id              String        @id @default(uuid())
-  inventoryItemId String
-  changeAmount    Float         // Positive for inward, negative for outward
-  reason          String        // e.g., "PO_RECEIPT", "LOT_ALLOCATION", "DISPATCH"
-  date            DateTime      @default(now())
-
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+model RawStock {
+  id                 String    @id @default(uuid())
+  name               String    @default("Un-named Batch")
+  weight             Float                // kg received
+  usedWeight         Float     @default(0) // kg already sent to sorting
+  date               DateTime  @default(now())
+  note               String?
+  originalRawStockId String?              // Tracks if this was transferred from another raw stock
+  factoryId          String?
+  factory            Factory?  @relation(fields: [factoryId], references: [id])
+  sortings           Sorting[]
+  sortingRawStocks   SortingRawStock[]
+  createdAt          DateTime  @default(now())
 }
 
 // -----------------------------------------------------------------------------
-// 3. LIVE PROCESSING & QUALITY
+// SORTING — Raw stock is separated into lots by category/size
 // -----------------------------------------------------------------------------
 
-model ProcessingLot {
-  id            String      @id @default(uuid())
-  lotNumber     String      @unique
-  startDate     DateTime    @default(now())
-  initialWeight Float       // In Kg
-  currentStage  String   @default("CLEANING")
-  status        String   @default("IN_PROGRESS")
-  
-  stageLogs     StageLog[]
-  gradingRecord GradingRecord?
-}
-
-
-
-
-
-model StageLog {
-  id              String        @id @default(uuid())
-  lotId           String
-  stageName       String
-  startTime       DateTime
-  endTime         DateTime?
-  inputWeight     Float
-  encryptedOutput String        // Encrypted yield
-  encryptedWastage String       // Encrypted waste/loss
-  workerId        String?       // Reference to Employee
-
-  lot             ProcessingLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
-  worker          Employee?     @relation(fields: [workerId], references: [id], onDelete: SetNull)
-}
-
-model GradingRecord {
-  id               String        @id @default(uuid())
-  lotId            String        @unique
-  encryptedW320    String
-  encryptedW240    String
-  encryptedSplits  String
-  qcNotes          String?
-  certificateUrl   String?
-  date             DateTime      @default(now())
-
-  lot              ProcessingLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
-}
-
-// -----------------------------------------------------------------------------
-// 4. HR, PAYROLL & ACCOUNTING
-// -----------------------------------------------------------------------------
-
-model Employee {
-  id                   String        @id @default(uuid())
-  encryptedName        String
-  encryptedPhone       String
-  encryptedAadhar      String
-  encryptedBankDetails String
-  role                 String        // "Sheller", "Peeler", "Driver"
-  department           String
-  encryptedDailyWage   String        // Or Piece-rate base
-  status               String        @default("ACTIVE")
-  
-  // Login & Biometrics
-  email                String?       @unique
-  passwordHash         String?
-  faceRegistered       Boolean       @default(false)
-
-  attendances          Attendance[]
-  pieceWorks           PieceWork[]
-  payrolls             Payroll[]
-  stageLogs            StageLog[]    // Jobs they worked on
-}
-
-model Attendance {
-  id         String   @id @default(uuid())
-  employeeId String
-  date       DateTime
-  checkIn    DateTime?
-  checkOut   DateTime?
-  status     String   // "PRESENT", "ABSENT", "HALF_DAY"
-
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-}
-
-model PieceWork {
-  id              String   @id @default(uuid())
-  employeeId      String
-  date            DateTime
-  stageName       String   // "Shelling", "Peeling"
-  kgProcessed     Float
-  encryptedEarned String   // Earnings for this specific work
-
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-}
-
-model Payroll {
-  id               String   @id @default(uuid())
-  employeeId       String
-  month            Int
-  year             Int
-  encryptedTotal   String
-  encryptedAdvance String
-  encryptedNetPay  String
-  status           String   // "PENDING", "PAID"
-
-  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-}
-
-// --- ACCOUNTING (Double-Entry Ledger) ---
-
-model LedgerAccount {
-  id               String   @id @default(uuid())
-  accountName      String
-  type             String  // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-  encryptedBalance String
-
-  debitTransactions  Transaction[] @relation("DebitAccount")
-  creditTransactions Transaction[] @relation("CreditAccount")
-}
-
-
-
-model Transaction {
-  id              String        @id @default(uuid())
-  date            DateTime      @default(now())
-  description     String
-  debitAccountId  String
-  creditAccountId String
-  encryptedAmount String
-  referenceId     String?       // Links to PO id, Sales Order id, or Payroll id
-
-  debitAccount    LedgerAccount @relation("DebitAccount", fields: [debitAccountId], references: [id], onDelete: Restrict)
-  creditAccount   LedgerAccount @relation("CreditAccount", fields: [creditAccountId], references: [id], onDelete: Restrict)
-}
-
-// -----------------------------------------------------------------------------
-// 5. SALES & MACHINERY
-// -----------------------------------------------------------------------------
-
-model Customer {
-  id             String       @id @default(uuid())
-  encryptedName  String
-  encryptedPhone String
-  encryptedAddress String
-  gstin          String?
-
-  salesOrders    SalesOrder[]
-}
-
-model SalesOrder {
-  id             String        @id @default(uuid())
-  customerId     String
-  orderDate      DateTime      @default(now())
-  status         String        // PENDING, DISPATCHED, DELIVERED
-  encryptedTotal String
-
-  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  dispatchLogs   DispatchLog[]
-}
-
-model DispatchLog {
-  id             String      @id @default(uuid())
-  salesOrderId   String
-  dispatchDate   DateTime    @default(now())
-  vehicleNumber  String
-  driverName     String?
-
-  salesOrder     SalesOrder  @relation(fields: [salesOrderId], references: [id], onDelete: Restrict)
-}
-
-// --- MACHINERY ---
-
-model Machine {
-  id             String              @id @default(uuid())
-  name           String
-  modelNumber    String
-  status         String              // RUNNING, IDLE, MAINTENANCE
-  
-  telemetry      MachineTelemetry[]
-  maintenanceLogs MaintenanceLog[]
-}
-
-model MachineTelemetry {
+model SortingRawStock {
   id          String   @id @default(uuid())
-  machineId   String
-  timestamp   DateTime @default(now())
-  temperature Float?
-  pressure    Float?
-  powerKw     Float?
-
-  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  sortingId   String
+  sorting     Sorting  @relation(fields: [sortingId], references: [id], onDelete: Cascade)
+  rawStockId  String
+  rawStock    RawStock @relation(fields: [rawStockId], references: [id], onDelete: Restrict)
+  weight      Float
 }
 
-model MaintenanceLog {
+model Sorting {
   id          String   @id @default(uuid())
-  machineId   String
+  rawStockId  String?  // Keep optional for old data if any
+  rawStock    RawStock? @relation(fields: [rawStockId], references: [id])
+  totalWeight Float              // total kg being sorted
   date        DateTime @default(now())
-  description String
-  cost        Float?
-  technician  String?
-
-  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  note        String?
+  factoryId   String?
+  factory     Factory? @relation(fields: [factoryId], references: [id])
+  lots        Lot[]
+  rawStocks   SortingRawStock[]
+  createdAt   DateTime @default(now())
 }
 
+// -----------------------------------------------------------------------------
+// LOT — Individual lot created from sorting (e.g., "W240 - 500kg")
+// -----------------------------------------------------------------------------
 
+model Lot {
+  id            String           @id @default(uuid())
+  sortingId     String
+  sorting       Sorting          @relation(fields: [sortingId], references: [id])
+  name          String                     // e.g., "Large Grade A"
+  category      String                     // e.g., "W180", "W240", "W320", "Broken"
+  initialWeight Float                      // kg at start
+  currentWeight Float                      // kg at current stage
+  currentStage  String           @default("PENDING")
+  status        String           @default("PENDING") // PENDING, PROCESSING, COMPLETED
+  note          String?
+  splitFromLotId String?         // Tracks which lot this was split from (e.g. pre-packaging sorting)
+  factoryId     String?
+  factory       Factory?         @relation(fields: [factoryId], references: [id])
+  steps         ProcessingStep[]
+  finishedStock FinishedStock?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// PROCESSING STEP — Each stage completion for a lot
+// -----------------------------------------------------------------------------
+
+model ProcessingStep {
+  id           String   @id @default(uuid())
+  lotId        String
+  lot          Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  stageName    String              // CLEANING, BOILING, COOLING, PRE_PACKAGING_SORTING
+  subProcessName String?           // Fine-grained sub-processes within a stage
+  sortingMethod  String?           // 'MANUAL' or 'MACHINE' (for pre-packaging sorting)
+  inputWeight  Float?              // Made optional for factory.weighAtEveryStage = false
+  outputWeight Float?
+  wastage      Float?              // auto-calculated if weights are provided
+  note         String?
+  completedBy  String?             // operator name (optional)
+  factoryId    String?
+  factory      Factory?            @relation(fields: [factoryId], references: [id])
+  completedAt  DateTime @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// FINISHED STOCK — Lot completed all stages, packed and ready
+// -----------------------------------------------------------------------------
+
+model FinishedStock {
+  id           String     @id @default(uuid())
+  lotId        String     @unique
+  lot          Lot        @relation(fields: [lotId], references: [id])
+  packedWeight Float
+  dispatched   Float      @default(0)
+  note         String?
+  factoryId    String?
+  factory      Factory?   @relation(fields: [factoryId], references: [id])
+  completedAt  DateTime   @default(now())
+  dispatches   Dispatch[]
+}
+
+// -----------------------------------------------------------------------------
+// DISPATCH — Stock leaving the factory
+// -----------------------------------------------------------------------------
+
+model Dispatch {
+  id              String        @id @default(uuid())
+  finishedStockId String
+  finishedStock   FinishedStock @relation(fields: [finishedStockId], references: [id])
+  weight          Float
+  note            String?
+  factoryId       String?
+  factory         Factory?      @relation(fields: [factoryId], references: [id])
+  date            DateTime      @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// ACTIVITY LOG — Track every action with timestamp
+// -----------------------------------------------------------------------------
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  action    String              // "STOCK_ADDED", "SORTING_DONE", etc.
+  detail    String              // Human-readable description
+  weight    Float?              // Related weight
+  factoryId String?
+  factory   Factory?            @relation(fields: [factoryId], references: [id])
+  timestamp DateTime @default(now())
+}

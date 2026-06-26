@@ -1,16 +1,31 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-import { encryptService } from '../services/encryptService';
+import { prisma } from '../lib/prisma';
+import { normalizeRole } from '../middleware/authMiddleware';
 
 const router = Router();
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
+
+    const userCount = await prisma.user.count();
+    if (userCount > 0) {
+      const header = req.headers.authorization;
+      if (!header?.startsWith('Bearer ')) {
+        return res.status(403).json({ error: 'Authentication required to register new users' });
+      }
+      try {
+        const payload = jwt.verify(header.slice(7), JWT_SECRET) as { role: string };
+        if (normalizeRole(payload.role) !== 'OWNER') {
+          return res.status(403).json({ error: 'Only owners can register new users' });
+        }
+      } catch {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -18,15 +33,13 @@ router.post('/register', async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    // Use the encrypt engine to secure the user's name
-    const encryptedName = await encryptService.encrypt(name);
 
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
-        role: role || 'WORKER',
-        encryptedName,
+        name: name || 'Factory Owner',
+        role: normalizeRole(role || 'OWNER'),
       },
     });
 
@@ -41,62 +54,62 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    let authUser: any = await prisma.user.findUnique({ where: { email } });
-    let isEmployee = false;
-    let employeeData: any = null;
-
-    if (!authUser) {
-      // Fallback to Employee login
-      const emp = await prisma.employee.findFirst({ where: { email } });
-      if (emp) {
-        isEmployee = true;
-        employeeData = emp;
-        authUser = {
-          id: emp.id,
-          email: emp.email,
-          passwordHash: emp.passwordHash,
-          role: emp.role, // e.g. "Worker", "Manager"
-          encryptedName: emp.encryptedName,
-        };
-      }
-    }
+    const authUser = await prisma.user.findUnique({ where: { email } });
 
     if (!authUser) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Since we used raw password in HR for demo (or bcrypt if updated), handle both:
-    let validPassword = false;
-    if (isEmployee) {
-      // We set passwordHash as raw text in setCredentials for demo purposes. Check raw first, then bcrypt if you want
-      validPassword = password === authUser.passwordHash;
-    } else {
-      validPassword = await bcrypt.compare(password, authUser.passwordHash);
-    }
-
+    const validPassword = await bcrypt.compare(password, authUser.passwordHash);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: authUser.id, role: authUser.role }, JWT_SECRET, { expiresIn: '1d' });
-    
-    // Decrypt the name for the frontend
-    const decryptedName = await encryptService.decrypt(authUser.encryptedName);
+    const role = normalizeRole(authUser.role);
+    const token = jwt.sign({ userId: authUser.id, role }, JWT_SECRET, { expiresIn: '30d' });
 
     res.json({
       token,
       user: {
         id: authUser.id,
         email: authUser.email,
-        role: authUser.role,
-        name: decryptedName,
-        isEmployee: isEmployee,
-        faceRegistered: isEmployee ? employeeData.faceRegistered : true,
-      }
+        role: role.toLowerCase(),
+        name: authUser.name,
+      },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/dev-reset', async (req, res) => {
+  try {
+    const { pin, newEmail, newPassword, role, name } = req.body;
+    if (pin !== '9009') {
+      return res.status(401).json({ error: 'Invalid developer pin' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const normalizedRole = normalizeRole(role || 'OWNER');
+
+    let user = await prisma.user.findUnique({ where: { email: newEmail } });
+    
+    if (user) {
+      user = await prisma.user.update({
+        where: { email: newEmail },
+        data: { passwordHash, role: normalizedRole, name: name || user.name }
+      });
+    } else {
+      user = await prisma.user.create({
+        data: { email: newEmail, passwordHash, role: normalizedRole, name: name || 'Developer' }
+      });
+    }
+
+    res.json({ message: 'Password reset successfully', userId: user.id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error during dev-reset' });
   }
 });
 

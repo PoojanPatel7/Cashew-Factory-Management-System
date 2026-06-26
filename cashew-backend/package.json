@@ -5,7 +5,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node -T src/server.ts",
-    "start": "ts-node -T src/server.ts"
+    "start": "ts-node -T src/server.ts",
+    "seed": "ts-node -T src/seed.ts",
+    "db:push": "prisma db push"
   },
   "keywords": [],
   "author": "",

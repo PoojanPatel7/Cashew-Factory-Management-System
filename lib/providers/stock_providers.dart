@@ -1,0 +1,785 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'package:rxdart/rxdart.dart';
+import '../core/network/api_client.dart';
+
+final _db = FirebaseFirestore.instance;
+
+// ─── Dashboard Provider ─────────────────────────────────────
+final dashboardProvider = StreamProvider.autoDispose<Map<String, dynamic>>((ref) async* {
+  final factoryId = await ApiClient().getFactoryId();
+  if (factoryId == null) {
+    yield {};
+    return;
+  }
+  
+  final rawStream = _db.collection('raw_stocks').where('factoryId', isEqualTo: factoryId).snapshots();
+  final lotsStream = _db.collection('lots').where('factoryId', isEqualTo: factoryId).snapshots();
+  final finishedStream = _db.collection('finished_stocks').where('factoryId', isEqualTo: factoryId).snapshots();
+
+  yield* Rx.combineLatest3(rawStream, lotsStream, finishedStream, (rawSnap, lotsSnap, finSnap) {
+    double totalRawReceived = 0;
+    double totalRawAvailable = 0;
+    for (var doc in rawSnap.docs) { 
+      final w = (doc.data()['weight'] as num?)?.toDouble() ?? 0;
+      final used = (doc.data()['usedWeight'] as num?)?.toDouble() ?? 0;
+      totalRawReceived += w;
+      totalRawAvailable += (w - used);
+    }
+
+    int processingLotsCount = 0;
+    double processingWeight = 0;
+    int pendingLotsCount = 0;
+    for (var doc in lotsSnap.docs) { 
+      final status = doc.data()['status'];
+      if (status == 'PROCESSING') {
+        processingLotsCount++;
+        processingWeight += (doc.data()['currentWeight'] as num?)?.toDouble() ?? 0; 
+      } else if (status == 'PENDING') {
+        pendingLotsCount++;
+      }
+    }
+
+    double totalFinishedAvailable = 0;
+    double totalDispatched = 0;
+    for (var doc in finSnap.docs) { 
+      final w = (doc.data()['packedWeight'] as num?)?.toDouble() ?? 0;
+      final disp = (doc.data()['dispatched'] as num?)?.toDouble() ?? 0;
+      totalDispatched += disp;
+      totalFinishedAvailable += (w - disp); 
+    }
+
+    return {
+      'rawStock': {'available': totalRawAvailable, 'total': totalRawReceived},
+      'processing': {'active': processingLotsCount, 'activeWeight': processingWeight, 'pending': pendingLotsCount},
+      'finished': {'available': totalFinishedAvailable, 'totalDispatched': totalDispatched},
+      'recentActivity': [],
+    };
+  });
+});
+
+// ─── Current Factory Provider ─────────────────────────────────
+final currentFactoryProvider = StreamProvider.autoDispose<Map<String, dynamic>?>((ref) async* {
+  final id = await ApiClient().getFactoryId();
+  if (id == null) {
+    yield null;
+    return;
+  }
+  
+  yield* _db.collection('factories').doc(id).snapshots().map((doc) {
+    if (!doc.exists) return null;
+    final data = doc.data()!;
+    data['id'] = doc.id;
+    return data;
+  });
+});
+
+// ─── Raw Stock Provider ─────────────────────────────────────
+class RawStockNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final Ref ref;
+
+  StreamSubscription? _sub;
+  RawStockNotifier(this.ref) : super(const AsyncValue.loading()) {
+    _initSub();
+    fetch();
+  }
+
+  void _initSub() async {
+    final factoryId = await ApiClient().getFactoryId();
+    _sub = _db.collection('raw_stocks').where('factoryId', isEqualTo: factoryId).snapshots().listen((_) {
+      if (mounted) fetch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetch() async {
+    if (!state.hasValue) state = const AsyncValue.loading();
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      final query = await _db.collection('raw_stocks')
+          .where('factoryId', isEqualTo: factoryId)
+          
+          .get();
+      
+      final items = query.docs.map((d) {
+        final data = d.data();
+        data['id'] = d.id;
+        return data;
+      }).toList();
+      double totalRaw = 0;
+      double available = 0;
+      for (var item in items) {
+        final w = (item['weight'] as num?)?.toDouble() ?? 0;
+        final used = (item['usedWeight'] as num?)?.toDouble() ?? 0;
+        totalRaw += w;
+        available += (w - used);
+      }
+      
+      state = AsyncValue.data({
+        'stocks': items,
+        'totalRaw': totalRaw,
+        'available': available,
+      });
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<bool> add(double weight, String name, String? note) async {
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      await _db.collection('raw_stocks').add({
+        'factoryId': factoryId,
+        'weight': weight,
+        'usedWeight': 0,
+        'name': name,
+        'note': note,
+        'date': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> edit(String id, double weight, String name, String? note) async {
+    try {
+      await _db.collection('raw_stocks').doc(id).update({
+        'weight': weight,
+        'name': name,
+        'note': note,
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> delete(String id) async {
+    try {
+      await _db.collection('raw_stocks').doc(id).delete();
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  Future<bool> transferRawStock(String rawStockId, String targetFactoryId, double weight) async {
+    try {
+      final docRef = _db.collection('raw_stocks').doc(rawStockId);
+      final doc = await docRef.get();
+      if (!doc.exists) return false;
+      
+      final currentData = doc.data()!;
+      await docRef.update({
+        'weight': FieldValue.increment(-weight),
+      });
+      
+      await _db.collection('raw_stocks').add({
+        'factoryId': targetFactoryId,
+        'weight': weight,
+        'usedWeight': 0,
+        'name': '${currentData['name']} (Transfer)',
+        'originalRawStockId': rawStockId,
+        'date': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      await fetch();
+      ref.invalidate(finishedProvider);
+      ref.invalidate(globalDashboardProvider);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> mergeRawStock(List<String> rawStockIds, {String? name}) async {
+    try {
+      double totalWeight = 0;
+      double totalUsed = 0;
+      final factoryId = await ApiClient().getFactoryId();
+      
+      for (var id in rawStockIds) {
+        final doc = await _db.collection('raw_stocks').doc(id).get();
+        if (doc.exists) {
+          totalWeight += (doc.data()?['weight'] as num?)?.toDouble() ?? 0;
+          totalUsed += (doc.data()?['usedWeight'] as num?)?.toDouble() ?? 0;
+        }
+      }
+      
+      final newDoc = await _db.collection('raw_stocks').add({
+        'factoryId': factoryId,
+        'weight': totalWeight,
+        'usedWeight': totalUsed,
+        'name': name ?? 'Merged Raw Stock',
+        'date': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Delete old ones
+      for (var id in rawStockIds) {
+        await _db.collection('raw_stocks').doc(id).delete();
+      }
+      
+      await fetch();
+      return newDoc.id;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+final rawStockProvider = StateNotifierProvider<RawStockNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return RawStockNotifier(ref);
+});
+
+// ─── Sorting Provider ───────────────────────────────────────
+class SortingNotifier extends StateNotifier<AsyncValue<List<dynamic>>> {
+  final Ref ref;
+  StreamSubscription? _sub;
+  SortingNotifier(this.ref) : super(const AsyncValue.loading()) {
+    _initSub();
+    fetch();
+  }
+
+  void _initSub() async {
+    final factoryId = await ApiClient().getFactoryId();
+    _sub = _db.collection('sortings').where('factoryId', isEqualTo: factoryId).snapshots().listen((_) {
+      if (mounted) fetch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetch() async {
+    if (!state.hasValue) state = const AsyncValue.loading();
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      final query = await _db.collection('sortings')
+          .where('factoryId', isEqualTo: factoryId)
+          
+          .get();
+      
+      final items = <Map<String, dynamic>>[];
+      for (var d in query.docs) {
+        final data = d.data();
+        data['id'] = d.id;
+        final lotsQuery = await _db.collection('lots').where('sortingId', isEqualTo: d.id).get();
+        data['lots'] = lotsQuery.docs.map((ld) {
+          final ldata = ld.data();
+          ldata['id'] = ld.id;
+          return ldata;
+        }).toList();
+        items.add(data);
+      }
+      
+      state = AsyncValue.data(items);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<bool> create(Map<String, dynamic> data) async {
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      
+      // Update raw stock used weights
+      double totalWeight = 0;
+      List<Map<String, dynamic>> rawStocksMeta = [];
+      if (data['rawStocks'] != null) {
+        for (var rs in data['rawStocks']) {
+           final weight = (rs['weight'] as num).toDouble();
+           totalWeight += weight;
+           
+           final rsDoc = await _db.collection('raw_stocks').doc(rs['id']).get();
+           final name = rsDoc.data()?['name'] ?? 'Unknown';
+           rawStocksMeta.add({'rawStockId': rs['id'], 'weight': weight, 'rawStock': {'name': name}});
+           
+           await _db.collection('raw_stocks').doc(rs['id']).update({
+             'usedWeight': FieldValue.increment(weight)
+           });
+        }
+      }
+
+      final sortingDoc = await _db.collection('sortings').add({
+        'factoryId': factoryId,
+        'totalWeight': totalWeight,
+        'date': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'note': data['note'],
+        'rawStocks': rawStocksMeta,
+      });
+
+      // Create Lots
+      if (data['lots'] != null) {
+        for (var l in data['lots']) {
+          await _db.collection('lots').add({
+            'factoryId': factoryId,
+            'sortingId': sortingDoc.id,
+            'name': l['name'],
+            'category': l['category'],
+            'initialWeight': (l['initialWeight'] as num).toDouble(),
+            'currentWeight': (l['initialWeight'] as num).toDouble(),
+            'currentStage': 'PENDING',
+            'status': 'PENDING',
+            'note': l['note'],
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'steps': [],
+            'sorting': {
+               'id': sortingDoc.id,
+               'rawStocks': rawStocksMeta,
+            }
+          });
+        }
+      }
+      
+      await fetch();
+      ref.invalidate(rawStockProvider);
+      ref.invalidate(globalDashboardProvider);
+      return true;
+    } catch (e) {
+      print('SORTING ERROR: $e');
+      return false;
+    }
+  }
+}
+
+final sortingProvider = StateNotifierProvider<SortingNotifier, AsyncValue<List<dynamic>>>((ref) {
+  return SortingNotifier(ref);
+});
+
+// ─── Lots Provider ──────────────────────────────────────────
+class LotsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic>>>> {
+  LotsNotifier() : super(const AsyncValue.loading()) {
+    fetch();
+  }
+
+  Future<void> fetch({String status = 'ALL'}) async {
+    if (!state.hasValue) state = const AsyncValue.loading();
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      final query = await _db.collection('lots').where('factoryId', isEqualTo: factoryId).get();
+      var docs = query.docs;
+      if (status != 'ALL') {
+        docs = docs.where((d) => (d.data() as Map<String, dynamic>)['status'] == status).toList();
+      }
+      
+      final items = docs.map((d) {
+        final data = d.data() as Map<String, dynamic>;
+        data['id'] = d.id;
+        return data;
+      }).toList();
+      
+      state = AsyncValue.data(items);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<bool> startLot(String id, {double? customWeight, String? note}) async {
+    try {
+      final doc = await _db.collection('lots').doc(id).get();
+      if (!doc.exists) return false;
+      final data = doc.data()!;
+      final currentW = (data['currentWeight'] as num).toDouble();
+      
+      // If customWeight is less than currentWeight, split the lot
+      if (customWeight != null && customWeight < currentW - 0.01) {
+        final remaining = currentW - customWeight;
+        
+        // Create a new PENDING lot for the remaining weight
+        await _db.collection('lots').add({
+          'factoryId': data['factoryId'],
+          'sortingId': data['sortingId'],
+          'name': '${data['name']} (Remaining)',
+          'category': data['category'],
+          'initialWeight': remaining,
+          'currentWeight': remaining,
+          'currentStage': 'PENDING',
+          'status': 'PENDING',
+          'note': 'Split from ${data['name']}',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'steps': [],
+          'sorting': data['sorting'],
+          'parentLotId': id,
+        });
+      }
+      
+      // Update the original lot to PROCESSING
+      await _db.collection('lots').doc(id).update({
+        'status': 'PROCESSING',
+        'currentStage': 'CLEANING',
+        'currentWeight': customWeight ?? currentW,
+        'initialWeight': customWeight ?? currentW,
+        if (note != null && note.isNotEmpty) 'note': note,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> completeStage(String lotId, double outputWeight, String? note, {String? sortingMethod}) async {
+    try {
+      final doc = await _db.collection('lots').doc(lotId).get();
+      if (!doc.exists) return null;
+      final data = doc.data()!;
+      final currentStage = data['currentStage'];
+      
+      const stageOrder = ['CLEANING', 'BOILING', 'COOLING', 'SHELLING', 'DRYING', 'PEELING', 'GRADING', 'PACKING'];
+      final currentIdx = stageOrder.indexOf(currentStage);
+      String nextStage;
+      if (currentIdx >= 0 && currentIdx < stageOrder.length - 1) {
+        nextStage = stageOrder[currentIdx + 1];
+      } else {
+        nextStage = 'COMPLETED';
+      }
+      
+      final step = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'stageName': currentStage,
+        'inputWeight': data['currentWeight'],
+        'outputWeight': outputWeight,
+        'wastage': (data['currentWeight'] as num).toDouble() - outputWeight,
+        'note': note,
+        'sortingMethod': sortingMethod,
+        'completedAt': DateTime.now().toIso8601String(),
+      };
+      
+      await _db.collection('lots').doc(lotId).update({
+        'currentStage': nextStage,
+        'currentWeight': outputWeight,
+        'status': nextStage == 'COMPLETED' ? 'COMPLETED' : 'PROCESSING',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'steps': FieldValue.arrayUnion([step]),
+      });
+      
+      if (nextStage == 'COMPLETED') {
+         await _db.collection('finished_stocks').add({
+           'lotId': lotId,
+           'factoryId': data['factoryId'],
+           'packedWeight': outputWeight,
+           'dispatched': 0,
+           'completedAt': FieldValue.serverTimestamp(),
+           'lot': {
+              'name': data['name'],
+              'category': data['category'],
+           },
+           'sorting': data['sorting'],
+         });
+      }
+      
+      await fetch();
+      return step;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> revertToStage(String lotId, String targetStage) async {
+    try {
+      final doc = await _db.collection('lots').doc(lotId).get();
+      if (!doc.exists) return false;
+      final data = doc.data()!;
+      final steps = List.from(data['steps'] ?? []);
+      const stageOrder = ['CLEANING', 'BOILING', 'COOLING', 'SHELLING', 'DRYING', 'PEELING', 'GRADING', 'PACKING'];
+      
+      double restoredWeight = (data['currentWeight'] as num).toDouble();
+      
+      final targetStepIdx = steps.indexWhere((s) => s['stageName'] == targetStage);
+      if (targetStepIdx != -1) {
+         restoredWeight = (steps[targetStepIdx]['inputWeight'] as num).toDouble();
+         steps.removeRange(targetStepIdx, steps.length);
+      }
+      
+      final newStatus = targetStage == 'CLEANING' && steps.isEmpty ? 'PENDING' : 'PROCESSING';
+      
+      await _db.collection('lots').doc(lotId).update({
+        'currentStage': targetStage,
+        'currentWeight': restoredWeight,
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'steps': steps,
+      });
+      
+      final fsQuery = await _db.collection('finished_stocks').where('lotId', isEqualTo: lotId).get();
+      for (var d in fsQuery.docs) {
+        await d.reference.delete();
+      }
+      
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> editLot(String id, Map<String, dynamic> data) async {
+    try {
+      await _db.collection('lots').doc(id).update(data);
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> addStepRecord(String lotId, String stageName, double outputWeight, String? note, {String? sortingMethod}) async {
+    // Legacy API handling, skip for Firebase MVP or redirect to completeStage
+    return null; 
+  }
+
+  Future<bool> unstartLot(String lotId) async {
+    try {
+      await _db.collection('lots').doc(lotId).update({
+        'status': 'PENDING',
+        'currentStage': 'PENDING',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'steps': [],
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  Future<bool> transferLot(String lotId, String targetFactoryId) async {
+    try {
+      await _db.collection('lots').doc(lotId).update({
+        'factoryId': targetFactoryId,
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+final lotsProvider = StateNotifierProvider<LotsNotifier, AsyncValue<List<Map<String, dynamic>>>>((ref) {
+  return LotsNotifier();
+});
+
+// ─── Lot Detail Provider (Live Stream) ──────────────────────
+final lotDetailProvider = StreamProvider.autoDispose.family<Map<String, dynamic>, String>((ref, id) {
+  return _db.collection('lots').doc(id).snapshots().map((doc) {
+    final data = doc.data()!;
+    data['id'] = doc.id;
+    return data;
+  });
+});
+
+// ─── Finished Stock Provider ────────────────────────────────
+class FinishedNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final Ref ref;
+
+  StreamSubscription? _sub;
+  FinishedNotifier(this.ref) : super(const AsyncValue.loading()) {
+    _initSub();
+    fetch();
+  }
+
+  void _initSub() async {
+    final factoryId = await ApiClient().getFactoryId();
+    _sub = _db.collection('finished_stocks').where('factoryId', isEqualTo: factoryId).snapshots().listen((_) {
+      if (mounted) fetch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetch() async {
+    if (!state.hasValue) state = const AsyncValue.loading();
+    try {
+      final factoryId = await ApiClient().getFactoryId();
+      final query = await _db.collection('finished_stocks')
+          .where('factoryId', isEqualTo: factoryId)
+          
+          .get();
+      
+      final items = query.docs.map((d) {
+        final data = d.data();
+        data['id'] = d.id;
+        return data;
+      }).toList();
+      double totalPacked = 0;
+      double totalDispatched = 0;
+      double available = 0;
+      for (var item in items) {
+        final w = (item['packedWeight'] as num?)?.toDouble() ?? 0;
+        final disp = (item['dispatched'] as num?)?.toDouble() ?? 0;
+        totalPacked += w;
+        totalDispatched += disp;
+        available += (w - disp);
+      }
+      
+      state = AsyncValue.data({
+        'stocks': items,
+        'totalPacked': totalPacked,
+        'totalDispatched': totalDispatched,
+        'available': available,
+      });
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<bool> dispatch(String finishedStockId, double weight, String? note) async {
+    try {
+      final doc = await _db.collection('finished_stocks').doc(finishedStockId).get();
+      final data = doc.data()!;
+      await _db.collection('finished_stocks').doc(finishedStockId).update({
+        'dispatched': FieldValue.increment(weight)
+      });
+      await _db.collection('dispatches').add({
+        'finishedStockId': finishedStockId,
+        'factoryId': data['factoryId'],
+        'weight': weight,
+        'note': note,
+        'date': FieldValue.serverTimestamp(),
+      });
+      await fetch();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+  Future<bool> transferFinishedStock(String finishedStockId, String targetFactoryId) async {
+    try {
+      await _db.collection('finished_stocks').doc(finishedStockId).update({
+        'factoryId': targetFactoryId,
+      });
+      await fetch();
+      ref.invalidate(rawStockProvider);
+      ref.invalidate(globalDashboardProvider);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+final finishedProvider = StateNotifierProvider<FinishedNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return FinishedNotifier(ref);
+});
+
+// ─── Factories List Provider ────────────────────────────────
+final factoriesListProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final query = await _db.collection('factories').get();
+  return query.docs.map((d) {
+    final data = d.data();
+    data['id'] = d.id;
+    return data;
+  }).toList();
+});
+
+// ─── Global Dashboard Provider ──────────────────────────────
+final globalDashboardProvider = StreamProvider.autoDispose<Map<String, dynamic>>((ref) async* {
+  final factoriesSnapStream = _db.collection('factories').snapshots();
+  final rawSnapStream = _db.collection('raw_stocks').snapshots();
+  final lotsSnapStream = _db.collection('lots').snapshots();
+  final finSnapStream = _db.collection('finished_stocks').snapshots();
+
+  yield* Rx.combineLatest4(factoriesSnapStream, rawSnapStream, lotsSnapStream, finSnapStream, (fSnap, rSnap, lSnap, finSnap) {
+    final List<Map<String, dynamic>> factoriesList = [];
+    double globalRawTotal = 0;
+    double globalRawAvailable = 0;
+    double globalProcessing = 0;
+    double globalFinishedAvailable = 0;
+    double globalFinishedTotal = 0;
+    double globalWastage = 0;
+    double globalLotInitialForYield = 0;
+
+    for (var fDoc in fSnap.docs) {
+      final fdata = fDoc.data();
+      fdata['id'] = fDoc.id;
+      
+      double rawTotal = 0;
+      double rawAvailable = 0;
+      for (var doc in rSnap.docs.where((d) => d.data()['factoryId'] == fDoc.id)) {
+        final weight = (doc.data()['weight'] as num?)?.toDouble() ?? 0;
+        final used = (doc.data()['usedWeight'] as num?)?.toDouble() ?? 0;
+        rawTotal += weight;
+        rawAvailable += (weight - used);
+      }
+      
+      double processing = 0;
+      double wastage = 0;
+      double lotInitialForYield = 0;
+      for (var doc in lSnap.docs.where((d) => d.data()['factoryId'] == fDoc.id)) {
+        final data = doc.data();
+        if (data['status'] != 'COMPLETED') {
+          processing += (data['currentWeight'] as num?)?.toDouble() ?? 0;
+        } else {
+          lotInitialForYield += (data['initialWeight'] as num?)?.toDouble() ?? 0;
+        }
+        
+        final steps = data['steps'] as List<dynamic>? ?? [];
+        for (final step in steps) {
+          wastage += (step['wastage'] as num?)?.toDouble() ?? 0;
+        }
+      }
+      
+      double finishedAvailable = 0;
+      double finishedTotal = 0;
+      for (var doc in finSnap.docs.where((d) => d.data()['factoryId'] == fDoc.id)) {
+        final packed = (doc.data()['packedWeight'] as num?)?.toDouble() ?? 0;
+        final dispatched = (doc.data()['dispatched'] as num?)?.toDouble() ?? 0;
+        finishedTotal += packed;
+        finishedAvailable += (packed - dispatched);
+      }
+      
+      fdata['rawTotal'] = rawTotal;
+      fdata['rawAvailable'] = rawAvailable;
+      fdata['processingWeight'] = processing;
+      fdata['finishedAvailable'] = finishedAvailable;
+      fdata['finishedTotal'] = finishedTotal;
+      fdata['wastage'] = wastage;
+      fdata['yieldPct'] = lotInitialForYield > 0 ? (finishedTotal / lotInitialForYield) * 100 : 0.0;
+
+      factoriesList.add(fdata);
+      globalRawTotal += rawTotal;
+      globalRawAvailable += rawAvailable;
+      globalProcessing += processing;
+      globalFinishedAvailable += finishedAvailable;
+      globalFinishedTotal += finishedTotal;
+      globalWastage += wastage;
+      globalLotInitialForYield += lotInitialForYield;
+    }
+
+    return {
+      'global': {
+        'rawTotal': globalRawTotal,
+        'rawAvailable': globalRawAvailable,
+        'processingWeight': globalProcessing,
+        'finishedAvailable': globalFinishedAvailable,
+        'finishedTotal': globalFinishedTotal,
+        'wastage': globalWastage,
+        'yieldPct': globalLotInitialForYield > 0 ? (globalFinishedTotal / globalLotInitialForYield) * 100 : 0.0,
+      },
+      'factories': factoriesList,
+    };
+  });
+});

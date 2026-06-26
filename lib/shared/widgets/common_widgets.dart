@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../config/themes.dart';
+import '../../features/auth/providers/auth_provider.dart';
 
 /// Glassmorphism stat card for dashboard widgets
 class GlassCard extends StatelessWidget {

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 /// CashewPro ERP — App-wide constants
 class AppConstants {
   AppConstants._();
@@ -7,9 +9,7 @@ class AppConstants {
   static const String appVersion = '0.1.0';
   static const String appTagline = 'Complete Cashew Factory Management';
 
-  // API Configuration (overridden by environment)
-  static const String defaultApiBaseUrl = 'http://127.0.0.1:4000/api';
-  static const String defaultEncryptEngineUrl = 'http://127.0.0.1:3100/api/v1';
+  // API Configuration (Removed for Firebase migration)
 
   // Timeouts
   static const Duration apiTimeout = Duration(seconds: 30);

@@ -46,17 +46,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
-  void _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _handleGoogleLogin() async {
+    final success = await ref.read(authProvider.notifier).signInWithGoogle();
 
+    if (!success && mounted) {
+      final error = ref.read(authProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Login failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _handleEmailLogin() async {
+    if (!_formKey.currentState!.validate()) return;
     final success = await ref.read(authProvider.notifier).login(
       _emailCtrl.text.trim(),
       _passwordCtrl.text,
     );
-
-    if (success && mounted) {
-      context.go('/');
-    } else if (mounted) {
+    if (!success && mounted) {
       final error = ref.read(authProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -73,6 +83,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final cs = theme.colorScheme;
 
     final authState = ref.watch(authProvider);
+
+    ref.listen(authProvider, (previous, next) {
+      if (next.isAuthenticated) {
+        if (next.role == null) {
+          if (previous?.role != null || previous?.isAuthenticated == false || previous == null) {
+            _showPinDialog();
+          }
+        } else {
+          context.go('/home');
+        }
+      }
+    });
 
     return Scaffold(
       body: Container(
@@ -99,12 +121,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         _buildLogo(cs),
                         const SizedBox(height: 40),
                         _buildLoginCard(theme, cs, authState.isLoading),
-                        const SizedBox(height: 20),
-                        TextButton.icon(
-                          onPressed: () => context.go('/setup'),
-                          icon: const Icon(Icons.add_business_rounded, size: 18),
-                          label: const Text('First time? Set up your factory'),
-                        ),
                       ],
                     ),
                   ),
@@ -122,15 +138,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       children: [
         Container(
           width: 80, height: 80,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [cs.primary, cs.secondary]),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 4))],
           ),
-          child: Icon(Icons.spa_rounded, color: cs.onPrimary, size: 40),
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
         ),
         const SizedBox(height: 16),
-        Text('CashewPro',
+        Text('HM Nuts',
           style: TextStyle(color: cs.primary, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 1)),
         Text('Factory Management System',
           style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 13, letterSpacing: 0.5)),
@@ -153,16 +169,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Welcome Back',
-              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
             const SizedBox(height: 4),
             Text('Sign in to manage your factory',
-              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
-            const SizedBox(height: 28),
+              style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)), textAlign: TextAlign.center),
+            const SizedBox(height: 32),
+
+            SizedBox(
+              height: 50,
+              child: OutlinedButton(
+                onPressed: isLoading ? null : _handleGoogleLogin,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: cs.surface,
+                  side: BorderSide(color: cs.outline.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.zero,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/images/google_logo.png', height: 24, width: 24),
+                    const SizedBox(width: 12),
+                    Text('Sign in with Google', 
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: Divider(color: cs.outline.withValues(alpha: 0.5))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('OR', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+                Expanded(child: Divider(color: cs.outline.withValues(alpha: 0.5))),
+              ],
+            ),
+            const SizedBox(height: 24),
 
             TextFormField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+              decoration: InputDecoration(
+                labelText: 'Email', 
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Please enter your email';
                 if (!v.contains('@')) return 'Enter a valid email';
@@ -177,6 +233,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               decoration: InputDecoration(
                 labelText: 'Password',
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 suffixIcon: IconButton(
                   icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                   onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -188,7 +246,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             Row(
               children: [
@@ -202,7 +260,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 ),
                 const SizedBox(width: 8),
                 Expanded(child: Text('Remember me', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7), fontSize: 13))),
-                TextButton(onPressed: () {}, child: const Text('Forgot Password?', style: TextStyle(fontSize: 13))),
+                TextButton(
+                  onPressed: () {}, 
+                  child: const Text('Forgot Password?', style: TextStyle(fontSize: 13))
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -210,37 +271,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             SizedBox(
               height: 50,
               child: ElevatedButton(
-                onPressed: isLoading ? null : _handleLogin,
+                onPressed: isLoading ? null : _handleEmailLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cs.primary,
+                  foregroundColor: cs.onPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: isLoading
-                    ? SizedBox(width: 22, height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary))
-                    : const Text('Sign In', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Demo login hint
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: cs.primary, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Demo: Use any email & 6+ char password',
-                      style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
-                  ),
-                ],
+                    ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: cs.onPrimary))
+                    : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showPinDialog() {
+    final pinCtrl = TextEditingController();
+    bool isLoading = false;
+    bool obscurePin = true;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Setup Owner Access'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Enter the setup PIN to assign the OWNER role to this account.'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: pinCtrl,
+                    obscureText: obscurePin,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'PIN',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscurePin ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setStateDialog(() => obscurePin = !obscurePin),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () {
+                    ref.read(authProvider.notifier).logout();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    setStateDialog(() => isLoading = true);
+                    final success = await ref.read(authProvider.notifier).verifyOwnerPin(pinCtrl.text.trim());
+                    if (success && mounted) {
+                      Navigator.pop(context); // close dialog
+                      // Will auto navigate to /home via ref.listen
+                    } else if (mounted) {
+                      setStateDialog(() => isLoading = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(ref.read(authProvider).error ?? 'Invalid PIN'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Submit'),
+                ),
+              ],
+            );
+          }
+        );
+      }
     );
   }
 }

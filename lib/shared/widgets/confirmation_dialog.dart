@@ -229,8 +229,8 @@ class ConfirmationDialog extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            onConfirm();
                             Navigator.of(context).pop(true);
+                            onConfirm();
                           },
                           icon: const Icon(Icons.check, size: 18),
                           label: Text(confirmLabel),

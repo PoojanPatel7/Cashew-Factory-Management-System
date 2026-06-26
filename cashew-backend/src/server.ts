@@ -1,22 +1,10 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
-
-import supplierRoutes from './routes/supplierRoutes';
-import inventoryRoutes from './routes/inventoryRoutes';
-import purchaseOrderRoutes from './routes/purchaseOrderRoutes';
-import processingRoutes from './routes/processingRoutes';
-import qualityRoutes from './routes/qualityRoutes';
-import hrRoutes from './routes/hrRoutes';
-import accountingRoutes from './routes/accountingRoutes';
-import salesRoutes from './routes/salesRoutes';
-import machineryRoutes from './routes/machineryRoutes';
-import reportRoutes from './routes/reportRoutes';
-import syncRoutes from './routes/syncRoutes';
-
-import { rateLimit } from 'express-rate-limit';
+import stockRoutes from './routes/stockRoutes';
+import factoryRoutes from './routes/factoryRoutes';
+import { authMiddleware } from './middleware/authMiddleware';
 
 dotenv.config();
 
@@ -24,33 +12,20 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(helmet());
 app.use(express.json());
 
-// Prevent brute-force attacks on login
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 login requests per `window`
-  message: 'Too many requests from this IP, please try again later.',
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', message: 'CashewPro Stock Tracker Running' });
 });
 
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/procurement/pos', purchaseOrderRoutes);
-app.use('/api/processing', processingRoutes);
-app.use('/api/quality', qualityRoutes);
-app.use('/api/hr', hrRoutes);
-app.use('/api/accounting', accountingRoutes);
-app.use('/api/sales', salesRoutes);
-app.use('/api/machinery', machineryRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/sync', syncRoutes);
+// Auth (login/register)
+app.use('/api/auth', authRoutes);
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Cashew Backend Running' });
-});
+// Protected stock routes
+app.use('/api', authMiddleware);
+app.use('/api/factories', factoryRoutes);
+app.use('/api/stock', stockRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🥜 CashewPro Stock Tracker running on http://localhost:${PORT}`);
 });

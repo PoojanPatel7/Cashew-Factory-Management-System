@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "144958538979",
+    "project_id": "hm-nuts",
+    "storage_bucket": "hm-nuts.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:144958538979:android:cf89a97f675913fb1d31d6",
+        "android_client_info": {
+          "package_name": "com.cashewpro.cashewpro_erp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl5JeoTl_I6ruw02vE9mJ5jFI-KJkdvfU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

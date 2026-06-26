@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/network/api_client.dart';
 
 class AuthState {
@@ -8,6 +10,7 @@ class AuthState {
   final String? error;
   final String? role;
   final String? name;
+  final String? id;
   final bool? faceRegistered;
   final bool? isEmployee;
 
@@ -17,6 +20,7 @@ class AuthState {
     this.error,
     this.role,
     this.name,
+    this.id,
     this.faceRegistered,
     this.isEmployee,
   });
@@ -27,6 +31,7 @@ class AuthState {
     String? error,
     String? role,
     String? name,
+    String? id,
     bool? faceRegistered,
     bool? isEmployee,
   }) {
@@ -36,50 +41,130 @@ class AuthState {
       error: error ?? this.error,
       role: role ?? this.role,
       name: name ?? this.name,
+      id: id ?? this.id,
       faceRegistered: faceRegistered ?? this.faceRegistered,
       isEmployee: isEmployee ?? this.isEmployee,
     );
   }
 }
 
+class AuthRouterRefresh extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
+
 class AuthNotifier extends StateNotifier<AuthState> {
-  final ApiClient _apiClient = ApiClient();
+  final AuthRouterRefresh routerRefresh = AuthRouterRefresh();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   AuthNotifier() : super(AuthState()) {
     _checkInitialAuth();
   }
 
+  void _notifyRouter() => routerRefresh.refresh();
+
   Future<void> _checkInitialAuth() async {
-    final isLoggedIn = await _apiClient.isLoggedIn();
-    if (isLoggedIn) {
-      final role = await _apiClient.getUserRole();
-      state = state.copyWith(isAuthenticated: true, role: role);
+    _auth.authStateChanges().listen((User? user) async {
+      if (user != null) {
+        try {
+          final doc = await _firestore.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            final data = doc.data()!;
+            state = state.copyWith(
+              isAuthenticated: true,
+              role: data['role'] ?? 'OWNER',
+              name: data['name'] ?? 'Factory Owner',
+              id: user.uid,
+              isEmployee: data['isEmployee'] ?? false,
+              faceRegistered: data['faceRegistered'] ?? true,
+            );
+          } else {
+            // Document might not exist right after registration, before set() completes
+            state = state.copyWith(isAuthenticated: true, id: user.uid, role: null, isEmployee: null);
+          }
+        } catch (e) {
+          state = state.copyWith(error: 'Failed to load user profile.', isAuthenticated: true, id: user.uid, role: null, isEmployee: null);
+        }
+      } else {
+        state = AuthState();
+      }
+      _notifyRouter();
+    });
+  }
+
+  void markFaceRegistered() {
+    state = state.copyWith(faceRegistered: true);
+    if (state.id != null) {
+      _firestore.collection('users').doc(state.id).update({'faceRegistered': true});
+    }
+    _notifyRouter();
+  }
+
+  Future<bool> signInWithGoogle() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final googleProvider = GoogleAuthProvider();
+      final userCredential = await _auth.signInWithPopup(googleProvider);
+      
+      if (userCredential.user != null) {
+        // The _checkInitialAuth listener will pick up the user change and load from Firestore
+        state = state.copyWith(isLoading: false);
+        return true;
+      }
+      state = state.copyWith(isLoading: false, error: 'Google sign-in was cancelled.');
+      return false;
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message ?? 'Google sign-in failed');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'An unexpected error occurred.');
+      return false;
+    }
+  }
+
+  Future<bool> verifyOwnerPin(String pin) async {
+    state = state.copyWith(isLoading: true, error: null);
+    if (pin != '5252') {
+      state = state.copyWith(isLoading: false, error: 'Invalid PIN');
+      return false;
+    }
+
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await _firestore.collection('users').doc(user.uid).set({
+          'name': user.displayName ?? 'Factory Owner',
+          'email': user.email ?? '',
+          'role': 'OWNER',
+          'isEmployee': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        state = state.copyWith(
+          isLoading: false,
+          role: 'OWNER',
+          isEmployee: false,
+          name: user.displayName ?? 'Factory Owner',
+          isAuthenticated: true,
+        );
+        _notifyRouter();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Failed to assign owner role.');
+      return false;
     }
   }
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _apiClient.dio.post('/auth/login', data: {
-        'email': email,
-        'password': password,
-      });
-
-      final data = response.data;
-      await _apiClient.saveToken(data['token'], data['user']['role']);
-
-      state = state.copyWith(
-        isLoading: false,
-        isAuthenticated: true,
-        role: data['user']['role'],
-        name: data['user']['name'],
-        isEmployee: data['user']['isEmployee'] ?? false,
-        faceRegistered: data['user']['faceRegistered'] ?? true,
-      );
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      state = state.copyWith(isLoading: false);
       return true;
-    } on DioException catch (e) {
-      final errorMsg = e.response?.data['error'] ?? 'Network error. Please try again.';
-      state = state.copyWith(isLoading: false, error: errorMsg);
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message ?? 'Login failed');
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'An unexpected error occurred.');
@@ -90,17 +175,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> register(String name, String email, String password, String factory) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _apiClient.dio.post('/auth/register', data: {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final uid = userCredential.user!.uid;
+      
+      await _firestore.collection('users').doc(uid).set({
         'name': name,
         'email': email,
-        'password': password,
         'role': 'OWNER',
+        'isEmployee': false,
+        'createdAt': FieldValue.serverTimestamp(),
       });
-      // automatically log in after registration
-      return await login(email, password);
-    } on DioException catch (e) {
-      final errorMsg = e.response?.data['error'] ?? 'Registration failed.';
-      state = state.copyWith(isLoading: false, error: errorMsg);
+      
+      state = state.copyWith(isLoading: false);
+      return true;
+    } on FirebaseAuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message ?? 'Registration failed.');
       return false;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'An unexpected error occurred.');
@@ -109,8 +201,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await _apiClient.clearAuth();
-    state = AuthState(); // Reset to default
+    await _auth.signOut();
+    state = AuthState();
+    _notifyRouter();
   }
 }
 
