@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/network/api_client.dart';
 
@@ -109,7 +110,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (kIsWeb) {
         userCredential = await _auth.signInWithPopup(googleProvider);
       } else {
-        userCredential = await _auth.signInWithProvider(googleProvider);
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        if (googleUser == null) {
+          state = state.copyWith(isLoading: false, error: 'Google sign-in was cancelled.');
+          return false;
+        }
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential = await _auth.signInWithCredential(credential);
       }
       
       if (userCredential.user != null) {

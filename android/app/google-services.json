@@ -12,7 +12,20 @@
           "package_name": "com.cashewpro.cashewpro_erp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "144958538979-26bvtvnjof0hgm3ab3d1rq55eptlth9m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cashewpro.cashewpro_erp",
+            "certificate_hash": "e6b9d2da9c82cac681544ee42e0eb3ca8e74699b"
+          }
+        },
+        {
+          "client_id": "144958538979-ohp4co45rsg3vsnretocodhuncn0gpsa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAl5JeoTl_I6ruw02vE9mJ5jFI-KJkdvfU"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "144958538979-ohp4co45rsg3vsnretocodhuncn0gpsa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "144958538979-t8ed1dvjog2mrj3pgmlp85r95h8vj17k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cashewpro.cashewproErp"
+              }
+            }
+          ]
         }
       }
     }
